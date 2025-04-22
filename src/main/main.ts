@@ -18,6 +18,105 @@ import { spawn } from 'child_process';
 import { ServerManager } from '../common/manager/severManager';
 
 import { loadMCPServers } from '../common/configLoader';
+import { ServerInstaller } from '../common/installer/ServerInstaller';
+import { ServerUninstaller } from '../common/installer/ServerUninstaller';
+import { MCPServerConfigExtended } from '@/common/types/server-config';
+
+// 인스톨러 및 언인스톨러 인스턴스 생성
+const installer = new ServerInstaller();
+const uninstaller = new ServerUninstaller();
+
+const isDev = process.env.NODE_ENV === 'development';
+const serversMap = loadMCPServers();
+const manager    = new ServerManager(Array.from(serversMap.values()))
+
+
+// 설치 진행 상태 이벤트 전달
+installer.addProgressListener((progress) => {
+  if (mainWindow) {
+    mainWindow.webContents.send('installProgress', progress);
+  }
+});
+
+uninstaller.addProgressListener((progress) => {
+  if (mainWindow) {
+    mainWindow.webContents.send('uninstallProgress', progress);
+  }
+});
+
+// 서버 설치 IPC 핸들러
+ipcMain.on('installServer', async (event, serverName: string) => {
+  const config = mcpConfig.mcpServers[serverName] as MCPServerConfigExtended;
+  
+  if (!config) {
+    event.reply('installResult', { 
+      success: false, 
+      serverName, 
+      message: '서버 설정을 찾을 수 없습니다' 
+    });
+    return;
+  }
+  
+  try {
+    const success = await installer.installServer(serverName, config);
+    
+    event.reply('installResult', { 
+      success, 
+      serverName, 
+      message: success ? '설치 완료' : '설치 실패' 
+    });
+    
+    // 설치 성공 시 서버 목록 갱신
+    if (success) {
+      event.sender.send('serversUpdated', manager.getStatus());
+    }
+  } catch (error) {
+    event.reply('installResult', { 
+      success: false, 
+      serverName, 
+      message: `설치 오류: ${error instanceof Error ? error.message : String(error)}` 
+    });
+  }
+});
+
+// 서버 제거 IPC 핸들러
+ipcMain.on('uninstallServer', async (event, serverName: string) => {
+  const config = mcpConfig.mcpServers[serverName] as MCPServerConfigExtended;
+  
+  if (!config) {
+    event.reply('uninstallResult', { 
+      success: false, 
+      serverName, 
+      message: '서버 설정을 찾을 수 없습니다' 
+    });
+    return;
+  }
+  
+  try {
+    // 먼저 서버 중지
+    await manager.stopServer(serverName);
+    
+    // 서버 제거
+    const success = await uninstaller.uninstallServer(serverName, config);
+    
+    event.reply('uninstallResult', { 
+      success, 
+      serverName, 
+      message: success ? '제거 완료' : '제거 실패' 
+    });
+    
+    // 제거 성공 시 서버 목록 갱신
+    if (success) {
+      event.sender.send('serversUpdated', manager.getStatus());
+    }
+  } catch (error) {
+    event.reply('uninstallResult', { 
+      success: false, 
+      serverName, 
+      message: `제거 오류: ${error instanceof Error ? error.message : String(error)}` 
+    });
+  }
+});
 
 
 class AppUpdater {
@@ -33,9 +132,7 @@ let mainWindow: BrowserWindow | null = null;
 
 
 
-const isDev = process.env.NODE_ENV === 'development';
-const serversMap = loadMCPServers();
-const manager    = new ServerManager(Array.from(serversMap.values()))
+
 
 
 
