@@ -39,7 +39,7 @@ function Hello() {
         </a>
       </div>
       <h2>서버 실행</h2>
-      <div className="ServerList">
+      {/* <div className="ServerList">
         {Object.keys(mcpServers).map((id) => (
           <button
             key={id}
@@ -49,7 +49,7 @@ function Hello() {
             {id}
           </button>
         ))}
-      </div>
+      </div> */}
     </div>
   );
 }

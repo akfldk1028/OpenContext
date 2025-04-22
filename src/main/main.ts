@@ -9,15 +9,14 @@
  * `./src/main.js` using webpack. This gives us some performance wins.
  */
 import path from 'path';
-import { app, BrowserWindow, shell, ipcMain } from 'electron';
+import { app, BrowserWindow, shell, ipcMain, IpcMainEvent } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
 import MenuBuilder from './menu';
 import { resolveHtmlPath } from './util';
 import { spawn } from 'child_process';
 import { ServerManager } from '../common/manager/severManager';
-
-import { loadMCPServers } from '../common/configLoader';
+import { loadMCPServers, getMCPServerConfig } from '../common/configLoader';
 import { ServerInstaller } from '../common/installer/ServerInstaller';
 import { ServerUninstaller } from '../common/installer/ServerUninstaller';
 import { MCPServerConfigExtended } from '@/common/types/server-config';
@@ -28,96 +27,155 @@ const uninstaller = new ServerUninstaller();
 
 const isDev = process.env.NODE_ENV === 'development';
 const serversMap = loadMCPServers();
-const manager    = new ServerManager(Array.from(serversMap.values()))
+console.log(`[Main] Initializing ServerManager with serversMap:`, serversMap);
+let manager = new ServerManager(Array.from(serversMap.values()));
+console.log(`[Main] Initial manager status:`, manager.getStatus());
 
 
-// 설치 진행 상태 이벤트 전달
+let mainWindow: BrowserWindow | null = null;
+
+// Progress listeners
 installer.addProgressListener((progress) => {
+  console.log('🔄 main: sending installProgress', progress);
   if (mainWindow) {
     mainWindow.webContents.send('installProgress', progress);
   }
 });
-
 uninstaller.addProgressListener((progress) => {
+  console.log('🔄 main: sending uninstallProgress', progress);
   if (mainWindow) {
     mainWindow.webContents.send('uninstallProgress', progress);
   }
 });
 
 // 서버 설치 IPC 핸들러
-ipcMain.on('installServer', async (event, serverName: string) => {
-  const config = mcpConfig.mcpServers[serverName] as MCPServerConfigExtended;
-  
+ipcMain.on('installServer', async (event: IpcMainEvent, serverName: string) => {
+  const config = getMCPServerConfig(serverName);
+  console.log('⬇️ main: installServer handler received for', serverName);
+
   if (!config) {
-    event.reply('installResult', { 
-      success: false, 
-      serverName, 
-      message: '서버 설정을 찾을 수 없습니다' 
+    console.error(`[Main] Config not found for ${serverName}. Replying error.`);
+    event.reply('installResult', {
+      success: false,
+      serverName,
+      message: `설정 파일을 찾을 수 없습니다: ${serverName}`
     });
     return;
   }
-  
+
   try {
-    const success = await installer.installServer(serverName, config);
-    
-    event.reply('installResult', { 
-      success, 
-      serverName, 
-      message: success ? '설치 완료' : '설치 실패' 
+    console.log(`[Main] Starting installation process for ${serverName}...`);
+    const installResult = await installer.installServer(serverName, config);
+    console.log(`[Main] Install attempt finished for ${serverName}. Success: ${installResult.success}`);
+
+    if (installResult.success && installResult.method) {
+      console.log(`[Main] Install successful. Updating ServerManager for ${serverName} with method: ${installResult.method.type}`);
+      manager.updateServerExecutionDetails(serverName, installResult.method);
+      console.log(`[Main] ServerManager updated for ${serverName}.`);
+    } else if (installResult.success) {
+      console.warn(`[Main] Install successful for ${serverName}, but no specific method details received to update ServerManager.`);
+    } else {
+      console.error(`[Main] Installation failed for ${serverName}.`);
+    }
+
+    const message = installResult.success ? '설치 완료' : '설치 실패 (오류 발생)';
+    console.log(`[Main] Sending 'installResult' to renderer for ${serverName}: success=${installResult.success}`);
+    event.reply('installResult', {
+      success: installResult.success,
+      serverName,
+      message: message,
     });
-    
-    // 설치 성공 시 서버 목록 갱신
-    if (success) {
+
+    if (installResult.success) {
+      const newMap = loadMCPServers();
+      manager = new ServerManager(Array.from(newMap.values()));
       event.sender.send('serversUpdated', manager.getStatus());
     }
+
   } catch (error) {
-    event.reply('installResult', { 
-      success: false, 
-      serverName, 
-      message: `설치 오류: ${error instanceof Error ? error.message : String(error)}` 
+    console.error(`[Main] Error during install process for ${serverName}:`, error);
+    event.reply('installResult', {
+      success: false,
+      serverName,
+      message: `설치 중 오류 발생: ${error instanceof Error ? error.message : String(error)}`
     });
   }
 });
 
 // 서버 제거 IPC 핸들러
-ipcMain.on('uninstallServer', async (event, serverName: string) => {
-  const config = mcpConfig.mcpServers[serverName] as MCPServerConfigExtended;
-  
+ipcMain.on('uninstallServer', async (event: IpcMainEvent, serverName: string) => {
+  console.log(`🗑️ main: uninstallServer handler received for ${serverName}`);
+  const config = getMCPServerConfig(serverName);
+
   if (!config) {
-    event.reply('uninstallResult', { 
-      success: false, 
-      serverName, 
-      message: '서버 설정을 찾을 수 없습니다' 
+    console.error(`[Main] Config not found for ${serverName}. Cannot uninstall.`);
+    event.reply('uninstallResult', {
+      success: false,
+      serverName,
+      message: `설정 파일을 찾을 수 없어 제거할 수 없습니다: ${serverName}`
     });
     return;
   }
-  
+
   try {
-    // 먼저 서버 중지
     await manager.stopServer(serverName);
-    
-    // 서버 제거
+    console.log(`[Main] Attempting to uninstall server ${serverName}...`);
+
     const success = await uninstaller.uninstallServer(serverName, config);
-    
-    event.reply('uninstallResult', { 
-      success, 
-      serverName, 
-      message: success ? '제거 완료' : '제거 실패' 
+    console.log(`[Main] Uninstall attempt for ${serverName} finished. Success: ${success}`);
+
+    const message = success ? '제거 완료' : '제거 실패';
+    event.reply('uninstallResult', {
+      success,
+      serverName,
+      message
     });
-    
-    // 제거 성공 시 서버 목록 갱신
+
     if (success) {
+      const newMap = loadMCPServers();
+      manager = new ServerManager(Array.from(newMap.values()));
+      console.log(`[Main] ServerManager updated after uninstalling ${serverName}.`);
       event.sender.send('serversUpdated', manager.getStatus());
     }
   } catch (error) {
-    event.reply('uninstallResult', { 
-      success: false, 
-      serverName, 
-      message: `제거 오류: ${error instanceof Error ? error.message : String(error)}` 
+    console.error(`[Main] Error during uninstall process for ${serverName}:`, error);
+    event.reply('uninstallResult', {
+      success: false,
+      serverName,
+      message: `제거 중 오류 발생: ${error instanceof Error ? error.message : String(error)}`
     });
   }
 });
 
+// 서버 시작 IPC 핸들러
+ipcMain.on('start-server', async (event: IpcMainEvent, serverName: string) => {
+  console.log(`[Main] Received start-server IPC for: ${serverName}`);
+  try {
+    console.log(`[Main] Attempting to start server ${serverName} via ServerManager...`);
+    await manager.startServer(serverName);
+    console.log(`[Main] Server ${serverName} start command issued successfully.`);
+    event.reply('server-start-result', { success: true, serverName });
+    event.sender.send('serversUpdated', manager.getStatus());
+  } catch (error) {
+    console.error(`[Main] Failed to start server ${serverName}:`, error);
+    event.reply('server-start-result', { success: false, serverName, error: error instanceof Error ? error.message : String(error) });
+  }
+});
+
+// 서버 중지 IPC 핸들러
+ipcMain.on('stop-server', async (event: IpcMainEvent, serverName: string) => {
+  console.log(`[Main] Received stop-server IPC for: ${serverName}`);
+  try {
+    console.log(`[Main] Attempting to stop server ${serverName} via ServerManager...`);
+    await manager.stopServer(serverName);
+    console.log(`[Main] Server ${serverName} stop command issued successfully.`);
+    event.reply('server-stop-result', { success: true, serverName });
+    event.sender.send('serversUpdated', manager.getStatus());
+  } catch (error) {
+    console.error(`[Main] Failed to stop server ${serverName}:`, error);
+    event.reply('server-stop-result', { success: false, serverName, error: error instanceof Error ? error.message : String(error) });
+  }
+});
 
 class AppUpdater {
   constructor() {
@@ -127,64 +185,17 @@ class AppUpdater {
   }
 }
 
-let mainWindow: BrowserWindow | null = null;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+// IPC 핸들러 for getting server statuses
 ipcMain.handle('getServers', async () => {
-  return manager.getStatus();  // 서버들의 최신 상태 리스트 반환
-});
-ipcMain.on('startServer', async (event, serverName: string) => {
-  await manager.startServer(serverName);
-  // 옵션: 서버 시작 후 상태 변화가 있으므로, 전체 상태를 다시 전송
-  event.sender.send('serversUpdated', manager.getStatus());
-});
-ipcMain.on('stopServer', async (event, serverName: string) => {
-  await manager.stopServer(serverName);
-  event.sender.send('serversUpdated', manager.getStatus());
+  console.log('[Main] Handling getServers request.');
+  return manager.getStatus();
 });
 
-
-// setInterval(async () => {
-//   for (const srv of manager.getAllServers()) {
-//     const statusInfo = await srv.checkStatus();
-//     // srv 객체 내부에 상태 캐시를 업데이트하거나 srv.status 갱신
-//   }
-//   // 모든 상태 업데이트 후 렌더러에 전달
-//   mainWindow.webContents.send('serversUpdated', manager.getStatus());
-// }, 5000);
-
-
-
-ipcMain.on('ipc-example', async (event, arg) => {
+ipcMain.on('ipc-example', async (event: IpcMainEvent, arg) => {
   const msgTemplate = (pingPong: string) => `IPC test: ${pingPong}`;
   console.log(msgTemplate(arg));
   event.reply('ipc-example', msgTemplate('pong'));
 });
-
-// 비개발자를 위한 MCP 서버 실행 처리 핸들러
-// ipcMain.on('start-server', (_, serverId) => {
-//   const mcpServers = (servers as any).mcpServers;
-//   const cfg = mcpServers ? mcpServers[serverId] : null;
-//   if (!cfg) {
-//     console.error(`서버 설정을 찾을 수 없습니다: ${serverId}`);
-//     return;
-//   }
-//   const proc = spawn(cfg.command, cfg.args || [], { detached: true, stdio: 'ignore' });
-//   proc.unref();
-// });
 
 if (process.env.NODE_ENV === 'production') {
   const sourceMapSupport = require('source-map-support');
@@ -224,6 +235,7 @@ const createWindow = async () => {
     return path.join(RESOURCES_PATH, ...paths);
   };
 
+
   mainWindow = new BrowserWindow({
     show: false,
     width: 1024,
@@ -255,6 +267,7 @@ const createWindow = async () => {
   const menuBuilder = new MenuBuilder(mainWindow);
   menuBuilder.buildMenu();
 
+  
   // Open urls in the user's browser
   mainWindow.webContents.setWindowOpenHandler((edata) => {
     shell.openExternal(edata.url);
@@ -266,13 +279,14 @@ const createWindow = async () => {
   new AppUpdater();
 };
 
-/**
- * Add event listeners...
- */
+setInterval(async () => {
+  if (!mainWindow) return;
+  const statuses = await manager.updateStatuses();
+  console.log(`[Main] Sending serversUpdated event with data:`, JSON.stringify(statuses));
+  mainWindow.webContents.send('serversUpdated', statuses);
+}, 5000);
 
 app.on('window-all-closed', () => {
-  // Respect the OSX convention of having the application in memory even
-  // after all windows have been closed
   if (process.platform !== 'darwin') {
     app.quit();
   }
@@ -282,9 +296,8 @@ app
   .whenReady()
   .then(() => {
     createWindow();
+
     app.on('activate', () => {
-      // On macOS it's common to re-create a window in the app when the
-      // dock icon is clicked and there are no other windows open.
       if (mainWindow === null) createWindow();
     });
   })

@@ -1,23 +1,48 @@
 {
-    "globalShortcut": "Alt+M",
-    "mcpServers": {
-      "exampleServer": {
-        "command": "node",
-        "args": [
-          "C:\\mcp_servers\\example\\index.js",
-          "--option", "value"
-        ],
-        "env": {
-          "EXAMPLE_ENV": "test"
+  "schema_version": "1.0.0",
+  "mcpServers": {
+    "qdrant-server": {
+      "name": "Qdrant 벡터 데이터베이스",
+      "description": "벡터 검색을 위한 Qdrant 서버",
+      "category": "AI/벡터 데이터베이스",
+      "version": "1.0.0",
+      "installationMethods": {
+        "docker": {
+          "type": "docker",
+          "dockerImage": "mcp-server-qdrant",
+          "command": "docker",
+          "args": ["run", "-p", "8000:8000"],
+          "env": {
+            "QDRANT_URL": "http://localhost:6333",
+            "COLLECTION_NAME": "my-collection",
+            "EMBEDDING_MODEL": "sentence-transformers/all-MiniLM-L6-v2"
+          }
+        },
+        "uvx": {
+          "type": "uvx",
+          "uvxPackage": "mcp-server-qdrant",
+          "command": "uvx",
+          "args": ["mcp-server-qdrant", "--transport", "sse"],
+          "env": {
+            "QDRANT_URL": "http://localhost:6333",
+            "COLLECTION_NAME": "my-collection",
+            "EMBEDDING_MODEL": "sentence-transformers/all-MiniLM-L6-v2"
+          }
+        },
+        "npm": {
+          "type": "npm",
+          "source": "mcp-server-qdrant",
+          "command": "npx",
+          "args": ["mcp-server-qdrant"],
+          "env": {
+            "QDRANT_URL": "http://localhost:6333",
+            "COLLECTION_NAME": "my-collection",
+            "EMBEDDING_MODEL": "sentence-transformers/all-MiniLM-L6-v2"
+          }
         }
       },
-      "anotherServer": {
-        "command": "npx",
-        "args": [
-          "mcp-server-sqlite",
-          "--db-path", "C:\\data\\mydatabase.db"
-        ]
-      }
+      "defaultMethod": "docker",
+      "port": 8000
     }
   }
-  
+}

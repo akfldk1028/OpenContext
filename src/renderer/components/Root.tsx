@@ -26,7 +26,7 @@ import {
 import Home from '../routes/Home';
 
 // NavItem을 컴포넌트 바깥으로 이동
-function NavItem({ icon, label, path, isActive, isExpanded, accentColor }) {
+function NavItem({ icon, label, path, isActive, isExpanded, accentColor }: { icon: any, label: string, path: string, isActive: boolean, isExpanded: boolean, accentColor: string }) {
   return (
     <Tooltip label={!isExpanded ? label : undefined} placement="right" hasArrow>
       <Flex

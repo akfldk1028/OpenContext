@@ -1,212 +1,111 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  Box,
-  Heading,
-  Text,
-  SimpleGrid,
-  Stat,
-  StatLabel,
-  StatNumber,
-  StatHelpText,
-  StatArrow,
-  Icon,
-  Flex,
-  Container,
-  Card,
-  CardHeader,
-  CardBody,
-  Badge,
-  ButtonGroup,
-  Button,
-  Divider,
-  Stack,
-  useColorMode,
-  useColorModeValue
+  Box, Button, Container, Heading, Icon,
+  SimpleGrid, Spinner, Stack, Text, useColorModeValue, VStack
 } from '@chakra-ui/react';
-import { FiActivity, FiServer, FiUsers, FiCpu, FiHardDrive, FiDatabase, FiSettings, FiRefreshCw } from 'react-icons/fi';
+import { FiDownload, FiRefreshCw } from 'react-icons/fi';
+
+type ServerStatus = { name: string; online: boolean; pingMs?: number };
 
 export default function Home() {
-  console.log('Home component mounted');
-  const { colorMode } = useColorMode();
+  const [servers, setServers] = useState<ServerStatus[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [logs, setLogs] = useState<string[]>([]);
+  const accent = useColorModeValue('blue.600', 'blue.300');
 
-  // 커스텀 테마 색상 적용
-  const cardBg = useColorModeValue('customCard.light', 'customCard.dark');
-  const accentColor = useColorModeValue('customAccent.light', 'customAccent.dark');
-  const borderColor = useColorModeValue('customBorder.light', 'customBorder.dark');
+  const fetchServers = async () => {
+    setLoading(true);
+    try {
+      const list = await window.api.getServers();
+      setServers(Array.isArray(list) ? list : []);
+    } catch (e) {
+      setLogs(l => [...l, `Error fetching: ${String(e)}`]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  return (
-    <Container maxW="container.xl" py={5}>
-      <Heading mb={6} color={accentColor}>MCP Server Dashboard</Heading>
+  useEffect(() => {
+    fetchServers();
 
-      <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={6} mb={8}>
-        <StatCard
-          icon={FiServer}
-          title="Server Status"
-          value="Online"
-          status="up"
-          detail="Uptime: 3 days 4 hours"
-          accentColor={accentColor}
-          cardBg={cardBg}
-          borderColor={borderColor}
-        />
+    // subscribe to updated lists
+    const offServers = window.api.onServersUpdated((list: ServerStatus[]) => {
+      setServers(Array.isArray(list) ? list : []);
+    });
 
-        <StatCard
-          icon={FiCpu}
-          title="CPU Usage"
-          value="24%"
-          status="down"
-          detail="2% decrease from yesterday"
-          accentColor={accentColor}
-          cardBg={cardBg}
-          borderColor={borderColor}
-        />
+    // subscribe to install progress
+    const offProg = window.api.onInstallProgress(({ serverName, status, percent }) => {
+      setLogs(l => [...l, `🔄 ${serverName}: ${status} (${percent}%)`]);
+    });
 
-        <StatCard
-          icon={FiHardDrive}
-          title="Memory Usage"
-          value="4.2 GB"
-          status="up"
-          detail="0.8 GB increase"
-          accentColor={accentColor}
-          cardBg={cardBg}
-          borderColor={borderColor}
-        />
+    // subscribe to install results
+    const offRes = window.api.onInstallResult(({ success, message, installDir }) => {
+      setLogs(l => [
+        ...l,
+        `Result: ${message}`,
+        installDir ? `→ 설치 경로: ${installDir}` : ''
+      ]);
+      if (success) fetchServers();
+    });
 
-        <StatCard
-          icon={FiUsers}
-          title="Active Clients"
-          value="37"
-          status="up"
-          detail="5 more than usual"
-          accentColor={accentColor}
-          cardBg={cardBg}
-          borderColor={borderColor}
-        />
-      </SimpleGrid>
+    return () => {
+      offServers();
+      offProg();
+      offRes();
+    };
+  }, []);
 
-      <SimpleGrid columns={{ base: 1, md: 2 }} spacing={6}>
-        <Card bg={cardBg} borderColor={borderColor} borderWidth="1px" boxShadow="md">
-          <CardHeader>
-            <Flex justify="space-between" align="center">
-              <Heading size="md">Recent Logs</Heading>
-              <Badge bg={accentColor} color="white">System Stable</Badge>
-            </Flex>
-          </CardHeader>
-          <CardBody>
-            <Stack spacing={3}>
-              <LogItem time="10:42:15" level="info" message="Client #28 connected successfully" accentColor={accentColor} />
-              <LogItem time="10:36:22" level="warning" message="High memory usage detected" accentColor={accentColor} />
-              <LogItem time="10:30:18" level="info" message="Backup completed successfully" accentColor={accentColor} />
-              <LogItem time="10:15:05" level="error" message="Failed to connect to database mirror" accentColor={accentColor} />
-              <LogItem time="10:02:37" level="info" message="System update scheduled for 02:00 AM" accentColor={accentColor} />
-            </Stack>
-            <Divider my={3} borderColor={borderColor} />
-            <Button size="sm" variant="outline" width="full" borderColor={accentColor} color={accentColor} _hover={{ bg: `${accentColor}20` }}>
-              View All Logs
-            </Button>
-          </CardBody>
-        </Card>
-
-        <Card bg={cardBg} borderColor={borderColor} borderWidth="1px" boxShadow="md">
-          <CardHeader>
-            <Heading size="md">Quick Actions</Heading>
-          </CardHeader>
-          <CardBody>
-            <SimpleGrid columns={2} spacing={4}>
-              <ActionButton icon={FiRefreshCw} text="Restart Server" accentColor={accentColor} />
-              <ActionButton icon={FiDatabase} text="Backup Data" accentColor={accentColor} />
-              <ActionButton icon={FiActivity} text="View Performance" accentColor={accentColor} />
-              <ActionButton icon={FiUsers} text="Manage Clients" accentColor={accentColor} />
-            </SimpleGrid>
-          </CardBody>
-        </Card>
-      </SimpleGrid>
-
-      {/* 추가 섹션: 서버 설정 */}
-      <Card bg={cardBg} borderColor={borderColor} borderWidth="1px" boxShadow="md" mt={6}>
-        <CardHeader>
-          <Flex justify="space-between" align="center">
-            <Heading size="md">Server Configuration</Heading>
-            <Button size="sm" leftIcon={<Icon as={FiSettings} />} bg={accentColor} color="white" _hover={{ bg: `${accentColor}90` }}>
-              Edit Settings
-            </Button>
-          </Flex>
-        </CardHeader>
-        <CardBody>
-          <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
-            <ConfigItem label="Server Name" value="MCP-MAIN-01" accentColor={accentColor} />
-            <ConfigItem label="Environment" value="Production" accentColor={accentColor} />
-            <ConfigItem label="Version" value="v2.4.8" accentColor={accentColor} />
-            <ConfigItem label="Database" value="PostgreSQL 14.0" accentColor={accentColor} />
-            <ConfigItem label="Last Update" value="2025-04-15 08:30 AM" accentColor={accentColor} />
-            <ConfigItem label="Scheduled Backup" value="Daily at 01:00 AM" accentColor={accentColor} />
-          </SimpleGrid>
-        </CardBody>
-      </Card>
-    </Container>
-  );
-}
-
-// 상태 카드 컴포넌트
-function StatCard({ icon, title, value, status, detail, accentColor, cardBg, borderColor }) {
-  return (
-    <Card bg={cardBg} borderColor={borderColor} borderWidth="1px" boxShadow="md">
-      <CardBody>
-        <Flex align="center" mb={2}>
-          <Icon as={icon} boxSize={6} color={accentColor} />
-          <Text ml={2} fontWeight="medium">{title}</Text>
-        </Flex>
-        <Stat>
-          <StatNumber fontSize="2xl">{value}</StatNumber>
-          <StatHelpText>
-            <StatArrow type={status} color={status === "up" ? accentColor : "gray.500"} />
-            {detail}
-          </StatHelpText>
-        </Stat>
-      </CardBody>
-    </Card>
-  );
-}
-
-// 로그 항목 컴포넌트
-function LogItem({ time, level, message, accentColor }) {
-  const colors = {
-    info: `${accentColor}`,
-    warning: "orange.400",
-    error: "red.400"
+  const onInstall = () => {
+    setLogs([]);
+    window.api.installServer('qdrant-server');
   };
 
   return (
-    <Flex align="center">
-      <Text fontSize="sm" color="gray.500" width="70px">{time}</Text>
-      <Badge bg={level === "info" ? accentColor : colors[level]} color="white" mr={2}>{level}</Badge>
-      <Text flex="1" fontSize="sm">{message}</Text>
-    </Flex>
-  );
-}
+    <Container py={8}>
+      <VStack spacing={6}>
+        <Heading color={accent}>MCP 자동설치 테스트</Heading>
 
-// 액션 버튼 컴포넌트
-function ActionButton({ icon, text, accentColor }) {
-  return (
-    <Button
-      bg={`${accentColor}10`}
-      color={accentColor}
-      borderColor={accentColor}
-      borderWidth="1px"
-      leftIcon={<Icon as={icon} />}
-      _hover={{ bg: `${accentColor}20` }}
-    >
-      {text}
-    </Button>
-  );
-}
+        {loading && <Spinner size="xl" />}
 
-// 설정 항목 컴포넌트
-function ConfigItem({ label, value, accentColor }) {
-  return (
-    <Box p={3} borderRadius="md" bg={`${accentColor}05`} borderColor={`${accentColor}20`} borderWidth="1px">
-      <Text fontSize="sm" fontWeight="medium" color={accentColor} mb={1}>{label}</Text>
-      <Text fontSize="md">{value}</Text>
-    </Box>
+        <Button
+            size="lg"
+            leftIcon={<Icon as={FiDownload} />}
+            colorScheme="blue"
+            onClick={onInstall}
+          >
+            Qdrant 서버 설치
+          </Button>
+        {!loading && servers.length > 0 && (
+          <Button
+            size="md"
+            leftIcon={<Icon as={FiRefreshCw} />}
+            onClick={fetchServers}
+          >
+            서버 목록 새로고침 ({servers.length})
+          </Button>
+        )}
+
+        <Box w="full" maxH="200px" overflowY="auto" p={4} bg="gray.50" rounded="md">
+          <Stack spacing={1}>
+            {logs.length
+              ? logs.map((msg, i) => <Text key={i} fontSize="sm">{msg}</Text>)
+              : <Text fontSize="sm" color="gray.500">로깅 대기 중...</Text>
+            }
+          </Stack>
+        </Box>
+
+        <Box w="full">
+          <Text fontWeight="bold">서버 상태</Text>
+          <SimpleGrid columns={2} spacing={4}>
+            {servers.map(srv => (
+              <Text key={srv.name}>
+                {srv.name}: {srv.online ? '🟢 Online' : '🔴 Offline'}
+                {srv.pingMs != null && ` (ping ${srv.pingMs}ms)`}
+              </Text>
+            ))}
+          </SimpleGrid>
+        </Box>
+      </VStack>
+    </Container>
   );
 }

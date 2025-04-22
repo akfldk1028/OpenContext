@@ -35,9 +35,7 @@ export class ServerUninstaller {
       this.reportProgress(serverName, '제거 준비 중...', 0);
       
       // 서버 디렉토리 경로
-      const serverDir = config.installation.installDir || 
-                        path.join(this.appDataPath, 'servers', serverName);
-      
+      const serverDir = config.installationMethods[config.defaultMethod!].installDir || path.join(this.appDataPath, 'servers', serverName);
       // 메타 데이터 확인
       const metaPath = path.join(serverDir, '.mcp-meta.json');
       let metaData = null;
@@ -47,7 +45,7 @@ export class ServerUninstaller {
       }
       
       // 설치 유형에 따른 제거 프로세스
-      const installType = metaData?.installType || config.installation.type;
+      const installType = metaData?.installType ?? config.installationMethods[config.defaultMethod!]?.type;
       
       switch (installType) {
         case 'docker':
@@ -55,6 +53,7 @@ export class ServerUninstaller {
           break;
         case 'git':
         case 'npm':
+        case 'uvx': // UVX 타입 추가
         case 'local':
           // 로컬 파일 삭제로 충분
           break;
@@ -84,7 +83,7 @@ export class ServerUninstaller {
     metaData: any
   ): Promise<void> {
     // Docker Compose 사용 시
-    if (metaData?.composeFile || config.installation.dockerComposeFile) {
+    if (metaData?.composeFile || config.installationMethods.dockerComposeFile) {
       this.reportProgress(serverName, 'Docker 컨테이너 중지 및 제거 중...', 30);
       
       const composeFile = metaData?.composeFile || 
@@ -95,10 +94,10 @@ export class ServerUninstaller {
       }
     } 
     // 개별 Docker 이미지 사용 시
-    else if (metaData?.image || config.installation.dockerImage) {
+    else if (metaData?.image || config.installationMethods.dockerImage) {
       this.reportProgress(serverName, 'Docker 컨테이너 찾는 중...', 20);
       
-      const image = metaData?.image || config.installation.dockerImage;
+      const image = metaData?.image || config.installationMethods.dockerImage;
       const containerList = await this.executeCommand(`docker ps -a --filter "ancestor=${image}" --format "{{.ID}}"`);
       
       if (containerList.trim()) {

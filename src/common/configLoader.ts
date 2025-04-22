@@ -1,30 +1,29 @@
 // src/common/configLoader.ts
-import { MCPServer, LocalMCPServer, RemoteMCPServer, MCPServerConfig } from './models/mcpserver';
-import mcpConfig from './config/mcpServer.json';  // ← 이 경로가 맞는지 꼭 확인
+import { MCPServer, LocalMCPServer, RemoteMCPServer } from './models/mcpserver';
+import { MCPConfig, MCPServerConfigExtended } from './types/server-config';
+import raw from './config/mcpServer.json';   // <<— webpack will bundle this
 
-/**
- * mcpConfig.mcpServers 의 타입은
- * Record<string, { command: string; args: string[]; env?: Record<string,string>; host?: string; port?: number }>
- * 로 인식됩니다.
- */
+const mcpConfig = raw as MCPConfig;
+
 export function loadMCPServers(): Map<string, MCPServer> {
-  const serversMap = new Map<string, MCPServer>();
-
-  for (const [name, srv] of Object.entries(mcpConfig.mcpServers) as [string, MCPServerConfig][]) {
-    const cfg: MCPServerConfig = {
-      command: srv.command,
-      args:    srv.args,
-      env:     srv.env,
-      host:    srv.host,
-      port:    srv.port,
+  const map = new Map<string, MCPServer>();
+  for (const [name, srvCfg] of Object.entries(mcpConfig.mcpServers)) {
+    const method = srvCfg.installationMethods[srvCfg.defaultMethod!];
+    const cfg = {
+      command: method.command,
+      args:    method.args,
+      env:     method.env,
+      host:    srvCfg.host,
+      port:    srvCfg.port,
     };
-
-    const instance = (cfg.host && cfg.port)
+    const inst = cfg.host && cfg.host !== 'localhost'
       ? new RemoteMCPServer(name, cfg)
       : new LocalMCPServer(name, cfg);
-
-    serversMap.set(name, instance);
+    map.set(name, inst);
   }
+  return map;
+}
 
-  return serversMap;
+export function getMCPServerConfig(name: string): MCPServerConfigExtended | undefined {
+  return mcpConfig.mcpServers[name];
 }
