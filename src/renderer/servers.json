@@ -1,0 +1,22 @@
+{
+    "mcpServers": {
+      "n8n": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "supergateway",
+          "--sse",
+          "http://localhost:5678/mcp/test/sse"
+        ]
+      },
+      "unityMCP": {
+        "command": "uv",
+        "args": [
+          "--directory",
+          "C:\\Users\\SOGANG\\AppData\\Local\\Programs\\UnityMCP\\UnityMcpServer\\src",
+          "run",
+          "server.py"
+        ]
+      }
+    }
+  }

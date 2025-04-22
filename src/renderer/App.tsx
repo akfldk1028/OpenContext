@@ -1,8 +1,11 @@
 import { MemoryRouter as Router, Routes, Route } from 'react-router-dom';
 import icon from '../../assets/icon.svg';
 import './App.css';
+import servers from './servers.json';
 
 function Hello() {
+  // JSON에서 mcpServers 객체 추출
+  const mcpServers = servers.mcpServers;
   return (
     <div>
       <div className="Hello">
@@ -34,6 +37,18 @@ function Hello() {
             Donate
           </button>
         </a>
+      </div>
+      <h2>서버 실행</h2>
+      <div className="ServerList">
+        {Object.keys(mcpServers).map((id) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => window.electron.ipcRenderer.sendMessage('start-server', id)}
+          >
+            {id}
+          </button>
+        ))}
       </div>
     </div>
   );

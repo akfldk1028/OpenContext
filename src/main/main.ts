@@ -14,6 +14,11 @@ import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
 import MenuBuilder from './menu';
 import { resolveHtmlPath } from './util';
+import { spawn } from 'child_process';
+import { ServerManager } from '../common/manager/severManager';
+
+import { loadMCPServers } from '../common/configLoader';
+
 
 class AppUpdater {
   constructor() {
@@ -25,11 +30,64 @@ class AppUpdater {
 
 let mainWindow: BrowserWindow | null = null;
 
+
+
+
+const isDev = process.env.NODE_ENV === 'development';
+const serversMap = loadMCPServers();
+const manager    = new ServerManager(Array.from(serversMap.values()))
+
+
+
+
+
+
+
+
+
+
+ipcMain.handle('getServers', async () => {
+  return manager.getStatus();  // 서버들의 최신 상태 리스트 반환
+});
+ipcMain.on('startServer', async (event, serverName: string) => {
+  await manager.startServer(serverName);
+  // 옵션: 서버 시작 후 상태 변화가 있으므로, 전체 상태를 다시 전송
+  event.sender.send('serversUpdated', manager.getStatus());
+});
+ipcMain.on('stopServer', async (event, serverName: string) => {
+  await manager.stopServer(serverName);
+  event.sender.send('serversUpdated', manager.getStatus());
+});
+
+
+// setInterval(async () => {
+//   for (const srv of manager.getAllServers()) {
+//     const statusInfo = await srv.checkStatus();
+//     // srv 객체 내부에 상태 캐시를 업데이트하거나 srv.status 갱신
+//   }
+//   // 모든 상태 업데이트 후 렌더러에 전달
+//   mainWindow.webContents.send('serversUpdated', manager.getStatus());
+// }, 5000);
+
+
+
 ipcMain.on('ipc-example', async (event, arg) => {
   const msgTemplate = (pingPong: string) => `IPC test: ${pingPong}`;
   console.log(msgTemplate(arg));
   event.reply('ipc-example', msgTemplate('pong'));
 });
+
+// 비개발자를 위한 MCP 서버 실행 처리 핸들러
+// ipcMain.on('start-server', (_, serverId) => {
+//   const mcpServers = (servers as any).mcpServers;
+//   const cfg = mcpServers ? mcpServers[serverId] : null;
+//   if (!cfg) {
+//     console.error(`서버 설정을 찾을 수 없습니다: ${serverId}`);
+//     return;
+//   }
+//   const proc = spawn(cfg.command, cfg.args || [], { detached: true, stdio: 'ignore' });
+//   proc.unref();
+// });
 
 if (process.env.NODE_ENV === 'production') {
   const sourceMapSupport = require('source-map-support');

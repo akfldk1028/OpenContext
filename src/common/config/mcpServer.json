@@ -1,0 +1,23 @@
+{
+    "globalShortcut": "Alt+M",
+    "mcpServers": {
+      "exampleServer": {
+        "command": "node",
+        "args": [
+          "C:\\mcp_servers\\example\\index.js",
+          "--option", "value"
+        ],
+        "env": {
+          "EXAMPLE_ENV": "test"
+        }
+      },
+      "anotherServer": {
+        "command": "npx",
+        "args": [
+          "mcp-server-sqlite",
+          "--db-path", "C:\\data\\mydatabase.db"
+        ]
+      }
+    }
+  }
+  
