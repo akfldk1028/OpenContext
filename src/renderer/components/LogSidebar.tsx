@@ -41,7 +41,7 @@ export default function LogSidebar({ logs, accentColor, isOpen }: LogSidebarProp
         <>
           {/* 헤더 (닫기 버튼 포함 가능) */}
           <Flex justify="space-between" align="center" mb={4}>
-            <Heading size="sm" color={accentColor}>실시간 로그</Heading>
+            <Heading size="sm" color={accentColor}>Log</Heading>
             {/* <IconButton
               aria-label="Close log sidebar"
               icon={<FiX />}
@@ -68,4 +68,4 @@ export default function LogSidebar({ logs, accentColor, isOpen }: LogSidebarProp
       )}
     </Flex>
   );
-} 
+}

@@ -35,7 +35,6 @@ import LogSidebar from './LogSidebar';
 // NavItem을 컴포넌트 바깥으로 이동
 function NavItem({ icon, label, path, isActive, isExpanded, accentColor }: { icon: any, label: string, path: string, isActive: boolean, isExpanded: boolean, accentColor: string }) {
   return (
-    <Tooltip label={!isExpanded ? label : undefined} placement="right" hasArrow>
       <Flex
         as={Link}
         to={path}
@@ -51,7 +50,6 @@ function NavItem({ icon, label, path, isActive, isExpanded, accentColor }: { ico
         <Icon as={icon} boxSize={5} />
         {isExpanded && <Box ml={3}>{label}</Box>}
       </Flex>
-    </Tooltip>
   );
 }
 
@@ -133,8 +131,9 @@ export default function Root() {
       offUninstallRes(); // 리스너 해제
     };
   }, [api]);
+  const cardBg = useColorModeValue('customCard.light', 'customCard.dark');
 
-  const headerBg = useColorModeValue('gray.100', 'gray.900');
+  const headerBg = useColorModeValue('customCard.light', 'customCard.dark');
   const footerBg = useColorModeValue('gray.50', 'gray.800');
   const mainBg = useColorModeValue('customBg.light', 'customBg.dark');
   const accentColor = useColorModeValue('customAccent.light', 'customAccent.dark');
@@ -180,7 +179,7 @@ export default function Root() {
       <Flex
         as="nav"
         direction="column"
-        bg={sidebarBg}
+        bg={cardBg}
         width={isNavExpanded ? "200px" : "70px"}
         py={4}
         borderRight="1px solid"
