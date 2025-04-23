@@ -1,0 +1,93 @@
+{
+  "schema_version": "1.0.0",
+  "mcpServers": {
+    "qdrant": {
+      "name": "Qdrant 벡터 데이터베이스",
+      "description": "벡터 검색을 위한 Qdrant 서버",
+      "category": "AI/벡터 데이터베이스",
+      "version": "1.0.0",
+      "inputs": [
+        { "type": "promptString", "id": "mode",           "description": "운영 모드 (remote/local)" },
+        { "type": "promptString", "id": "qdrantUrl",      "description": "원격 Qdrant URL" },
+        { "type": "promptString", "id": "qdrantApiKey",   "description": "원격 API Key", "password": true },
+        { "type": "promptString", "id": "localDbPath",    "description": "로컬 DB 경로" },
+        { "type": "promptString", "id": "collectionName", "description": "컬렉션 이름" },
+        { "type": "promptString", "id": "embeddingModel", "description": "임베딩 모델" }
+      ],
+
+      "installationMethods": {
+        "docker": {
+          "type": "docker",
+          "dockerImage": "mcp-server-qdrant",
+          "command": "docker",
+          "args": ["run", "-p", "8000:8000"],
+          "env": {
+            "COLLECTION_NAME": "${input:collectionName}",
+            "EMBEDDING_MODEL": "${input:embeddingModel}"
+          },
+          "overrides": {
+            "remote": {
+              "QDRANT_URL":     "${input:qdrantUrl}",
+              "QDRANT_API_KEY": "${input:qdrantApiKey}"
+            },
+            "local": {
+              "QDRANT_LOCAL_PATH": "${input:localDbPath}"
+            }
+          }
+        },
+        "uvx": {
+          "type": "uvx",
+          "uvxPackage": "mcp-server-qdrant",
+          "command": "uvx",
+          "args": ["mcp-server-qdrant", "--transport", "sse"],
+          "env": {
+            "QDRANT_URL":      "http://localhost:6333",
+            "COLLECTION_NAME": "my-collection",
+            "EMBEDDING_MODEL": "sentence-transformers/all-MiniLM-L6-v2"
+          },
+          "overrides": {
+            "remote": {
+              "QDRANT_URL":     "${input:qdrantUrl}",
+              "QDRANT_API_KEY": "${input:qdrantApiKey}",
+              "COLLECTION_NAME": "${input:collectionName}",
+              "EMBEDDING_MODEL": "${input:embeddingModel}"
+            },
+            "local": {
+              "QDRANT_LOCAL_PATH": "${input:localDbPath}",
+              "COLLECTION_NAME": "${input:collectionName}",
+              "EMBEDDING_MODEL": "${input:embeddingModel}"
+            }
+          }
+        },
+        "npm": {
+          "type": "npm",
+          "source": "mcp-server-qdrant",
+          "command": "npx",
+          "args": ["mcp-server-qdrant"],
+          "env": {
+            "QDRANT_URL":      "http://localhost:6333",
+            "COLLECTION_NAME": "my-collection",
+            "EMBEDDING_MODEL": "sentence-transformers/all-MiniLM-L6-v2"
+          },
+          "overrides": {
+            "remote": {
+              "QDRANT_URL":     "${input:qdrantUrl}",
+              "QDRANT_API_KEY": "${input:qdrantApiKey}",
+              "COLLECTION_NAME": "${input:collectionName}",
+              "EMBEDDING_MODEL": "${input:embeddingModel}"
+            },
+            "local": {
+              "QDRANT_LOCAL_PATH": "${input:localDbPath}",
+              "COLLECTION_NAME": "${input:collectionName}",
+              "EMBEDDING_MODEL": "${input:embeddingModel}"
+            }
+          }
+        }
+      },
+
+      "defaultMethod": "docker",
+      "port": 8000,
+      "host": "localhost"
+    }
+  }
+}

@@ -1,4 +1,4 @@
-import { ServerStatus } from '@/common/models/mcpserver';
+import { ServerStatus } from '@/common/types/server-status';
 import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron';
 
 export type Channels =

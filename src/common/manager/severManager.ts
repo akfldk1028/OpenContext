@@ -1,9 +1,12 @@
-import { MCPServer, ServerStatus } from '../models/mcpserver';
+import { LocalMCPServer} from '../models/LocalMCPServer';
+import { RemoteMCPServer } from '../models/RemoteMCPServer';
+import { ServerStatus } from '../types/server-status';
 import { ServerInstallationMethod } from '../types/server-config';
+import { BaseMCPServer } from '../models/BaseMCPServer';
 
 export class ServerManager {
-    private servers: Map<string, MCPServer>;
-    constructor(serverList: MCPServer[]) {
+    private servers: Map<string, BaseMCPServer>;
+    constructor(serverList: BaseMCPServer[]) {
       this.servers = new Map(serverList.map(s => [s.name, s]));
     }
     getStatus(): ServerStatus[] {

@@ -32,9 +32,11 @@
 // src/common/configLoader.ts
 import * as fs from 'fs';
 import * as path from 'path';
-import { MCPServer, LocalMCPServer, RemoteMCPServer } from './models/mcpserver';
+import { LocalMCPServer } from './models/LocalMCPServer';
+import { RemoteMCPServer } from './models/RemoteMCPServer';
 import { MCPConfig, MCPServerConfigExtended } from './types/server-config';
 import raw from './config/mcpServer.json';   // <<— webpack will bundle this
+import { BaseMCPServer } from './models/BaseMCPServer';
 
 // 기본 설정 로드
 const mcpConfig = raw as MCPConfig;
@@ -157,8 +159,8 @@ export function updateServerRunningStatus(name: string, isRunning: boolean): voi
 }
 
 // 기존 loadMCPServers 함수 수정 (combinedConfig 사용)
-export function loadMCPServers(): Map<string, MCPServer> {
-  const map = new Map<string, MCPServer>();
+export function loadMCPServers(): Map<string, BaseMCPServer> {
+  const map = new Map<string, BaseMCPServer>();
   
   // 기본 서버 구성 로드
   for (const [name, srvCfg] of Object.entries(mcpConfig.mcpServers)) {
