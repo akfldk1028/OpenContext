@@ -1,0 +1,26 @@
+{
+    "schema_version": "1.0.0",
+    "mcpServers": {
+      "weather": {
+        "name": "weather",
+        "description": "weather 서버",
+        "category": "기후 정보",
+        "version": "1.0.0",
+        "inputs": [],
+        "installationMethods": {
+          "uv": {
+            "type": "uv",
+            "command": "uv",
+            "args": [
+                "--directory",
+                "C:\\Users\\SOGANG\\PyCharmMiscProject\\weather",
+                "run",
+                "weather.py"
+            ]
+          }
+        },
+        "defaultMethod": "uv"
+      }
+    }
+  }
+  

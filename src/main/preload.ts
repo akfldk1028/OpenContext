@@ -15,7 +15,8 @@ export type Channels =
   | 'uninstallResult'
   | 'uninstallProgress'
   | 'server-start-result'
-  | 'server-stop-result';
+  | 'server-stop-result'
+  | 'server-log';
 
 
 // Low‑level façade (you can remove this if you don't need it elsewhere)
@@ -55,6 +56,16 @@ const api = {
       ipcRenderer.removeListener('server-stop-result', listener);
     };
   },
+
+  // 여기에 onServerLog 추가
+onServerLog: (fn: (message: string) => void) => {
+  const listener = (_: IpcRendererEvent, message: string) => fn(message);
+  ipcRenderer.on('server-log', listener);
+  return () => {
+    ipcRenderer.removeListener('server-log', listener);
+  };
+},
+
   // Control
   startServer: (serverName: string) => ipcRenderer.send('start-server', serverName), // <-- 이 부분 확인/추가
   stopServer:  (serverName: string) => ipcRenderer.send('stop-server', serverName), // <-- 이 부분 확인/추가
@@ -84,7 +95,7 @@ const api = {
 
   // Uninstall
   uninstallServer:     (name: string) => electronHandler.sendMessage('uninstallServer', name),
-  
+
   onUninstallProgress: (fn: (progress: any) => void) => {
     const listener = (_: IpcRendererEvent, p: any) => fn(p);
     ipcRenderer.on('uninstallProgress', listener);

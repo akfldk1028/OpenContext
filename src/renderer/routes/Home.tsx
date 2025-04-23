@@ -7,25 +7,27 @@ import { FiDownload, FiRefreshCw, FiPower, FiPause } from 'react-icons/fi';
 
 type ServerStatus = { name: string; online: boolean; pingMs?: number };
 
-export default function Home() {
+// Home 컴포넌트 props 타입 정의
+interface HomeProps {
+  addLog: (message: string) => void; // Root에서 전달받는 로그 추가 함수
+}
+
+export default function Home({ addLog }: HomeProps) { // props로 addLog 받기
   const [servers, setServers] = useState<ServerStatus[]>([]);
   const [loading, setLoading] = useState(false);
-  const [logs, setLogs] = useState<string[]>([]);
+  // const [logs, setLogs] = useState<string[]>([]); // Root로 이동
   const [processingServer, setProcessingServer] = useState<string | null>(null);
-  // Preload API 참조 (any로 캐스트)
   const api = (window as any).api;
   const accent = useColorModeValue('blue.600', 'blue.300');
-  // 서버 Config 요약 정보 및 선택 상태
   const [configSummaries, setConfigSummaries] = useState<{ id: string; name: string }[]>([]);
   const [selectedConfigId, setSelectedConfigId] = useState<string>('');
 
-  // Config 요약 불러오기
   const fetchConfigs = async () => {
     try {
       const list = await api.getConfigSummaries();
       setConfigSummaries(Array.isArray(list) ? list : []);
     } catch (e) {
-      setLogs(l => [...l, `Error fetching configs: ${String(e)}`]);
+      addLog(`Error fetching configs: ${String(e)}`); // setLogs 대신 addLog 사용
     }
   };
 
@@ -35,7 +37,7 @@ export default function Home() {
       const list = await api.getServers();
       setServers(Array.isArray(list) ? list : []);
     } catch (e) {
-      setLogs(l => [...l, `Error fetching: ${String(e)}`]);
+      addLog(`Error fetching servers: ${String(e)}`); // setLogs 대신 addLog 사용
     } finally {
       setLoading(false);
     }
@@ -45,59 +47,46 @@ export default function Home() {
     fetchConfigs();
     fetchServers();
 
-    // 서버 상태 업데이트 구독
+    // 서버 상태 업데이트 구독 (로그 관련 로직은 Root.tsx에서 처리)
     const offServers = api.onServersUpdated((list: ServerStatus[]) => {
       setServers(Array.isArray(list) ? list : []);
-      setProcessingServer(null); // 작업 완료 시 처리 중인 서버 상태 초기화
+      setProcessingServer(null);
     });
 
-    // 설치 진행 상황 구독
-    const offProg = api.onInstallProgress((prog: any) => {
-      const { serverName, status, percent } = prog;
-      setLogs(l => [...l, `🔄 ${serverName}: ${status} (${percent}%)`]);
-    });
-
-    // 설치 결과 구독
-    const offRes = api.onInstallResult((res: any) => {
-      const { success, message, serverName } = res;
-      setLogs(l => [
-        ...l,
-        `${serverName} 설치 결과: ${message}`
-      ]);
-      if (success) fetchServers();
-    });
+    // 설치 진행/결과 구독 리스너는 Root.tsx로 이동했으므로 여기서는 제거
+    // const offProg = ...
+    // const offRes = ...
 
     return () => {
       offServers();
-      offProg();
-      offRes();
+      // offProg(); // 제거
+      // offRes(); // 제거
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // 초기 로드 시 한 번만 실행
 
-  // 설치 핸들러: 선택된 Config ID로 설치
   const onInstall = () => {
     if (!selectedConfigId) return;
-    setLogs([]);
+    // setLogs([]); // Root에서 로그 관리하므로 여기서 초기화 불필요
+    addLog(`🚀 '${selectedConfigId}' 서버 설치 시작...`); // 설치 시작 로그 추가
     api.installServer(selectedConfigId);
   };
 
-  // 서버 시작
   const onStartServer = (serverName: string) => {
     setProcessingServer(serverName);
-    setLogs(l => [...l, `🔄 '${serverName}' 서버 시작 중...`]);
+    addLog(`🔄 '${serverName}' 서버 시작 중...`); // setLogs 대신 addLog 사용
     api.startServer(serverName);
   };
 
-  // 서버 중지
   const onStopServer = (serverName: string) => {
     setProcessingServer(serverName);
-    setLogs(l => [...l, `🔄 '${serverName}' 서버 중지 중...`]);
+    addLog(`🔄 '${serverName}' 서버 중지 중...`); // setLogs 대신 addLog 사용
     api.stopServer(serverName);
   };
 
   return (
-    <Container py={8}>
-      <VStack spacing={6}>
+    <Container py={8} maxH="100%" overflowY="auto"> {/* 여기에 최대 높이와 스크롤 설정 */}
+      <VStack spacing={6} align="stretch">
         <Heading color={accent}>MCP 서버 관리</Heading>
 
         {loading && <Spinner size="xl" />}
@@ -123,7 +112,7 @@ export default function Home() {
             설치
           </Button>
         </HStack>
-        
+
         {!loading && servers.length > 0 && (
           <Button
             size="md"
@@ -134,7 +123,8 @@ export default function Home() {
           </Button>
         )}
 
-        {/* 로그 출력 영역 */}
+        {/* 로그 출력 영역 제거 (Root.tsx의 오른쪽 사이드바로 이동) */}
+        {/*
         <Box w="full" maxH="200px" overflowY="auto" p={4} bg="gray.50" rounded="md">
           <Stack spacing={1}>
             {logs.length
@@ -143,17 +133,18 @@ export default function Home() {
             }
           </Stack>
         </Box>
+        */}
 
         {/* 서버 상태 목록 */}
         <Box w="full">
           <Text fontWeight="bold" mb={3}>서버 상태</Text>
           <SimpleGrid columns={1} spacing={4}>
             {servers.map(srv => (
-              <Box 
-                key={srv.name} 
-                p={3} 
-                borderWidth="1px" 
-                borderRadius="md" 
+              <Box
+                key={srv.name}
+                p={3}
+                borderWidth="1px"
+                borderRadius="md"
                 borderColor={srv.online ? "green.200" : "gray.200"}
                 bg={srv.online ? "green.50" : "gray.50"}
               >
@@ -164,7 +155,7 @@ export default function Home() {
                     </Badge>
                     <Text fontWeight="medium">{srv.name}</Text>
                   </HStack>
-                  
+
                   <HStack>
                     {!srv.online ? (
                       <Button
@@ -193,7 +184,7 @@ export default function Home() {
                 </HStack>
               </Box>
             ))}
-            
+
             {servers.length === 0 && !loading && (
               <Box p={5} borderWidth="1px" borderRadius="md" borderStyle="dashed" textAlign="center">
                 <Text color="gray.500">설치된 서버가 없습니다. 위 버튼으로 서버를 설치해 보세요.</Text>

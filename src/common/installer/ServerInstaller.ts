@@ -71,6 +71,10 @@ export class ServerInstaller {
             this.spawnServerProcess(serverName, config, serverDir);
           }
           break;
+        case 'uv':  // 새로운 UV 타입 처리
+          this.reportProgress(serverName, 'UV 설치 시작', 20);
+          success = await this.installFromUV(serverName, config, serverDir, method);
+          break;
         case 'uvx':
           this.reportProgress(serverName, 'UVX 설치 시작', 20);
           success = await this.installFromUVX(serverName, config, serverDir, method);
@@ -172,6 +176,13 @@ private spawnServerProcess(
             ]
           });
         break;
+      case 'uv':
+        Object.assign(config, {
+          command: 'uv',
+          args: [
+            'run', installMethod.uvxPackage || ''
+          ]
+        });
       case 'uvx':
         Object.assign(config, {
             command: 'uvx',
@@ -267,6 +278,83 @@ private async installFromNpm(
   fs.writeFileSync(path.join(serverDir, '.mcp-meta.json'), JSON.stringify({ name: config.name, installType: 'npm', installedAt: new Date().toISOString(), package: method.source }, null, 2));
   return true;
 }
+
+
+
+
+
+
+private async installFromUV(
+  serverName: string,
+  config: MCPServerConfigExtended,
+  serverDir: string,
+  method: ServerInstallationMethod
+): Promise<boolean> {
+  try {
+    this.reportProgress(serverName, 'UV 패키지 설치 준비 중...', 10);
+    
+    // 실행 스크립트 생성
+    const scriptContent = `#!/usr/bin/env node
+console.log('[run-uv.js] Script started.');
+
+const { spawn } = require('child_process');
+const path = require('path');
+console.log('[run-uv.js] Modules loaded.');
+
+const env = { ...process.env, ${Object.entries(method.env || {}).map(([k, v]) => `${JSON.stringify(k)}: ${JSON.stringify(v)}`).join(', ')} };
+console.log('[run-uv.js] Spawning command: uv');
+console.log('[run-uv.js] With args:', ${JSON.stringify(JSON.stringify(method.args))});
+console.log('[run-uv.js] In directory:', ${JSON.stringify(method.args[1] || serverDir)});
+
+const proc = spawn('uv', ${JSON.stringify(method.args)}, {
+  cwd: ${JSON.stringify(method.args[1] || serverDir)},
+  env,
+  stdio: 'inherit'
+});
+console.log('[run-uv.js] UV process potentially spawned (PID: ' + (proc.pid || 'unknown') + ').');
+
+proc.on('error', err => {
+  console.error('UV 실행 오류:', err);
+  process.exit(1);
+});
+
+process.on('SIGINT', () => proc.kill('SIGINT'));
+process.on('SIGTERM', () => proc.kill('SIGTERM'));
+`;
+
+    const scriptPath = path.join(serverDir, 'run-uv.js');
+    fs.writeFileSync(scriptPath, scriptContent);
+    fs.chmodSync(scriptPath, '755');
+
+    this.reportProgress(serverName, '서버 프로세스 시작 중...', 80);
+    console.log(`⚙️ installer: launching server`);
+
+    // Windows: 새로운 cmd 창에서 서버 실행 (cmd start 사용)
+    if (process.platform === 'win32') {
+      spawn('cmd.exe', ['/c', 'start', '""', 'node', scriptPath], {
+        cwd: serverDir,
+        detached: true,
+        stdio: 'ignore'
+      }).unref();
+    } else {
+      // Unix: 터미널에서 STDIN/OUT 상속
+      spawn('node', [scriptPath], { cwd: serverDir, stdio: 'inherit' });
+    }
+
+    this.reportProgress(serverName, '설치 완료 - 서버 실행됨', 100);
+    return true;
+  } catch (error) {
+    if (fs.existsSync(serverDir)) fs.rmSync(serverDir, { recursive: true, force: true });
+    throw error;
+  }
+}
+
+
+
+
+
+
+
 
 // UVX 설치 메서드 추가
 private async installFromUVX(

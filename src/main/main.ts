@@ -288,7 +288,7 @@ const createWindow = async () => {
   const menuBuilder = new MenuBuilder(mainWindow);
   menuBuilder.buildMenu();
 
-  
+
   // Open urls in the user's browser
   mainWindow.webContents.setWindowOpenHandler((edata) => {
     shell.openExternal(edata.url);
@@ -323,3 +323,12 @@ app
     });
   })
   .catch(console.log);
+
+
+function sendServerLogToRenderer(message: string) {
+  if (mainWindow) {
+    mainWindow.webContents.send('server-log', message);
+  }
+}
+
+export { sendServerLogToRenderer };

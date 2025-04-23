@@ -47,6 +47,8 @@ export class InstallMethodSelector {
         return await this.isDockerAvailable();
       case 'uvx':
         return await this.isUvxAvailable();
+      case 'uv':
+        return await this.isUvAvailable();
       case 'npm':
         return await this.isNpmAvailable();
       case 'git':
@@ -78,7 +80,14 @@ export class InstallMethodSelector {
       return false;
     }
   }
-  
+  private async isUvAvailable(): Promise<boolean> {
+    try {
+      await this.executeCommand('uv --version');
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
   // npm 사용 가능 여부 확인
   private async isNpmAvailable(): Promise<boolean> {
     try {

@@ -9,7 +9,7 @@ export interface ServerInput {
 }
 
 export interface ServerInstallationMethod {
-  type: 'git' | 'docker' | 'npm' | 'local' | 'uvx';
+  type: 'git' | 'docker' | 'npm' | 'local' | 'uvx' | 'uv';
   dockerImage?: string;
   uvxPackage?: string;
   source?: string;
