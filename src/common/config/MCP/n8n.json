@@ -10,30 +10,18 @@
 
       ],
       "installationMethods": {
-        "npm": {
-          "type": "npm",
-          "source": "n8n",
+        "local": {
+          "type": "local",
           "command": "npx",
           "args": [
             "-y",
             "supergateway",
             "--sse",
             "http://localhost:5678/mcp/test/sse"
-          ],
-          "overrides": {
-            "remote": {
- 
-            },
-            "local": {
-
-            }
-          }
+          ]
         }
       },
-
-      "defaultMethod": "docker",
-      "port": 8000,
-      "host": "localhost"
+      "defaultMethod": "local"
     }
   }
 }

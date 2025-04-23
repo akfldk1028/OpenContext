@@ -1,32 +1,4 @@
-// // src/common/configLoader.ts
-// import { MCPServer, LocalMCPServer, RemoteMCPServer } from './models/mcpserver';
-// import { MCPConfig, MCPServerConfigExtended } from './types/server-config';
-// import raw from './config/mcpServer.json';   // <<— webpack will bundle this
 
-// const mcpConfig = raw as MCPConfig;
-
-// export function loadMCPServers(): Map<string, MCPServer> {
-//   const map = new Map<string, MCPServer>();
-//   for (const [name, srvCfg] of Object.entries(mcpConfig.mcpServers)) {
-//     const method = srvCfg.installationMethods[srvCfg.defaultMethod!];
-//     const cfg = {
-//       command: method.command,
-//       args:    method.args,
-//       env:     method.env,
-//       host:    srvCfg.host,
-//       port:    srvCfg.port,
-//     };
-//     const inst = cfg.host && cfg.host !== 'localhost'
-//       ? new RemoteMCPServer(name, cfg)
-//       : new LocalMCPServer(name, cfg);
-//     map.set(name, inst);
-//   }
-//   return map;
-// }
-
-// export function getMCPServerConfig(name: string): MCPServerConfigExtended | undefined {
-//   return mcpConfig.mcpServers[name];
-// }
 
 
 // src/common/configLoader.ts
@@ -123,13 +95,6 @@ export function getMCPConfigSummaryList(): MCPConfigSummary[] {
   return list;
 }
 
-// id를 key로 하는 요약 맵 생성 함수 추가
-export function getMCPConfigSummaryMap(): Record<string, MCPConfigSummary> {
-  return getMCPConfigSummaryList().reduce<Record<string, MCPConfigSummary>>((acc, cur) => {
-    acc[cur.id] = cur;
-    return acc;
-  }, {} as Record<string, MCPConfigSummary>);
-}
 
 // 기본 JSON 설정 반환
 export function getBaseMCPServerConfig(id: string): MCPServerConfigExtended | undefined {

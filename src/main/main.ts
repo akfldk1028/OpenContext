@@ -16,7 +16,7 @@ import MenuBuilder from './menu';
 import { resolveHtmlPath } from './util';
 import { spawn } from 'child_process';
 import { ServerManager } from '../common/manager/severManager';
-import { loadMCPServers, getMCPServerConfig, getMCPConfigSummaryList } from '../common/configLoader';
+import { loadMCPServers, getBaseMCPServerConfig, getMCPConfigSummaryList } from '../common/configLoader';
 import { ServerInstaller } from '../common/installer/ServerInstaller';
 import { ServerUninstaller } from '../common/installer/ServerUninstaller';
 import { MCPServerConfigExtended } from '@/common/types/server-config';
@@ -50,23 +50,23 @@ uninstaller.addProgressListener((progress) => {
 
 // 서버 설치 IPC 핸들러
 ipcMain.on('installServer', async (event: IpcMainEvent, serverName: string) => {
-  const config = getMCPServerConfig(serverName);
+  const config = getBaseMCPServerConfig(serverName);
   console.log('⬇️ main: installServer handler received for', serverName);
 
-  console.log(`[Main] Received config for ${serverName}:`, JSON.stringify(config, null, 2));
+  console.log(`[Main] Received BASE config for ${serverName}:`, JSON.stringify(config, null, 2));
 
   if (!config) {
-    console.error(`[Main] Config not found for ${serverName}. Replying error.`);
+    console.error(`[Main] Base config not found for ${serverName}. Replying error.`);
     event.reply('installResult', {
       success: false,
       serverName,
-      message: `설정 파일을 찾을 수 없습니다: ${serverName}`
+      message: `기본 설정 파일(${serverName}.json)을 찾을 수 없습니다.`
     });
     return;
   }
 
   if (!config.installationMethods || Object.keys(config.installationMethods).length === 0) {
-    console.error(`[Main] Critical: installationMethods missing or empty in config for ${serverName}!`);
+    console.error(`[Main] Critical: installationMethods missing or empty in BASE config for ${serverName}!`);
     event.reply('installResult', {
       success: false,
       serverName,
@@ -76,7 +76,7 @@ ipcMain.on('installServer', async (event: IpcMainEvent, serverName: string) => {
   }
 
   try {
-    console.log(`[Main] Starting installation process for ${serverName}...`);
+    console.log(`[Main] Starting installation process for ${serverName} using BASE config...`);
     const installResult = await installer.installServer(serverName, config);
     console.log(`[Main] Install attempt finished for ${serverName}. Success: ${installResult.success}`);
 
@@ -117,7 +117,7 @@ ipcMain.on('installServer', async (event: IpcMainEvent, serverName: string) => {
 // 서버 제거 IPC 핸들러
 ipcMain.on('uninstallServer', async (event: IpcMainEvent, serverName: string) => {
   console.log(`🗑️ main: uninstallServer handler received for ${serverName}`);
-  const config = getMCPServerConfig(serverName);
+  const config = getBaseMCPServerConfig(serverName);
 
   if (!config) {
     console.error(`[Main] Config not found for ${serverName}. Cannot uninstall.`);

@@ -97,7 +97,7 @@
         }
       },
 
-      "defaultMethod": "docker",
+      "defaultMethod": "uvx",
       "port": 8000,
       "host": "localhost"
     }

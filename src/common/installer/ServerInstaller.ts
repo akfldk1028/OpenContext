@@ -26,7 +26,6 @@ export class ServerInstaller {
     }
   }
 
-  
   addProgressListener(listener: (progress: {serverName: string, status: string, percent: number}) => void) {
     this.progressListeners.push(listener);
   }
@@ -37,10 +36,10 @@ export class ServerInstaller {
       listener({ serverName, status, percent });
     }
   }
-    /** 서버별 설치 폴더 경로를 외부에서 조회할 때 쓰는 헬퍼 */
+
   public getInstallDir(serverName: string): string {
-      return path.join(this.appDataPath, 'servers', serverName);
-   }
+    return path.join(this.appDataPath, 'servers', serverName);
+  }
 
   async installServer(serverName: string, config: MCPServerConfigExtended): Promise<{ success: boolean; method?: ServerInstallationMethod }> {
     this.reportProgress(serverName, '시작', 0);
@@ -50,41 +49,36 @@ export class ServerInstaller {
       this.reportProgress(serverName, `선택된 방식: ${method.type}`, 5);
 
       const serverDir = method.installDir || this.getInstallDir(serverName);
-     
-
-      console.log(`📂 installer: installing "${serverName}" to directory:`, serverDir);
-
       if (!fs.existsSync(serverDir)) {
         fs.mkdirSync(serverDir, { recursive: true });
       }
 
- 
-
-      let success: boolean = false;
+      let success = false;
       switch (method.type) {
         case 'git':
           this.reportProgress(serverName, 'Git 설치 시작', 20);
           success = await this.installFromGit(serverName, config, serverDir, method);
-          console.log(`🎉 [Installer] Git install finished for ${serverName}`);
           break;
         case 'docker':
           this.reportProgress(serverName, 'Docker 설치 시작', 20);
           success = await this.installFromDocker(serverName, config, serverDir, method);
-          console.log(`🐳 [Installer] Docker install finished for ${serverName}`);
           break;
         case 'npm':
           this.reportProgress(serverName, 'NPM 설치 시작', 20);
           success = await this.installFromNpm(serverName, config, serverDir, method);
-          console.log(`📦 [Installer] NPM install finished for ${serverName}`);
+          if (success) {
+            this.updateCommandAndArgs(config, method);
+            this.spawnServerProcess(serverName, config, serverDir);
+          }
           break;
         case 'uvx':
           this.reportProgress(serverName, 'UVX 설치 시작', 20);
           success = await this.installFromUVX(serverName, config, serverDir, method);
-          console.log(`⚡️ [Installer] UVX install finished for ${serverName}`);
           break;
         case 'local':
-          this.reportProgress(serverName, '로컬 설치 (스킵)', 100);
-          console.log(`✅ [Installer] Local skip for ${serverName}`);
+          this.reportProgress(serverName, '로컬 실행 준비', 20);
+          this.updateCommandAndArgs(config, method);
+          this.spawnServerProcess(serverName, config, serverDir);
           success = true;
           break;
         default:
@@ -92,23 +86,79 @@ export class ServerInstaller {
       }
 
       if (success) {
-        this.reportProgress(serverName, '설치 완료', 100);
-        
-        // 추가: 설치 성공 시 설정 파일 업데이트
         updateServerInstallStatus(serverName, true, method.type, serverDir);
+        this.reportProgress(serverName, '설치 완료', 100);
         console.log(`📝 [Installer] Updated configuration for ${serverName}`);
-        
-        return { success: true, method: method }; // 성공 시 선택된 method 반환
+        return { success: true, method };
       } else {
-        throw new Error('Installation failed internally'); // 내부 실패 처리
+        throw new Error('Installation failed internally');
       }
     } catch (error) {
       console.error(`❌ [Installer] Error installing ${serverName}:`, error);
       this.reportProgress(serverName, `설치 실패: ${error instanceof Error ? error.message : error}`, 0);
-      return { success: false }; // 실패 시 success: false 반환
+      return { success: false };
     }
   }
-  
+
+  // private spawnServerProcess(serverName: string, config: MCPServerConfigExtended, cwd: string) {
+  //   this.reportProgress(serverName, '서버 프로세스 시작 중...', 90);
+  //   const command = config.execution!.command!;
+  //   const args = config.execution!.args || [];
+  //   const proc = spawn(command, args, {
+  //     cwd,
+  //     env: process.env,
+  //     stdio: 'ignore',
+  //     detached: true,
+  //     shell: true
+  //   });
+  //   proc.unref();
+  //   this.reportProgress(serverName, '서버 실행됨', 100);
+  // }
+
+private spawnServerProcess(
+  serverName: string,
+  config: MCPServerConfigExtended,
+  cwd: string
+) {
+  let command = config.execution!.command!;
+  const args = config.execution!.args || [];
+
+  this.reportProgress(serverName, '서버 프로세스 시작 중...', 90);
+
+  if (process.platform === 'win32') {
+    // UVX처럼 새 창에 띄우기
+    // → cmd.exe /c start "" <command> <args...>
+    const winArgs = ['/c', 'start', '""', command, ...args];
+    console.log(`⚙️ [Installer] Windows new window: cmd.exe ${winArgs.join(' ')}`);
+        // 부모 env 복사 후 ts-node preload 옵션 지우기
+    const env = { ...process.env };
+    delete env.NODE_OPTIONS;
+    const proc = spawn('cmd.exe', winArgs, {
+      cwd,
+      env,                // ← 수정된 env 사용
+      detached: true,
+      stdio: 'ignore'
+    });
+    proc.unref();
+  } else {
+    // macOS/Linux 원래 방식
+    console.log(`⚙️ [Installer] Spawning: ${command} ${args.join(' ')} in ${cwd}`);
+    const proc = spawn(command, args, {
+      cwd,
+      env: process.env,
+      shell: true,
+      stdio: 'inherit',
+      detached: true
+    });
+    proc.unref();
+  }
+
+  this.reportProgress(serverName, '서버 실행됨', 100);
+}
+
+
+
+
   // 설치 방법에 따라 명령어와 인자 업데이트
   private updateCommandAndArgs(config: MCPServerConfigExtended, installMethod: ServerInstallationMethod): void {
     switch (installMethod.type) {
@@ -132,209 +182,91 @@ export class ServerInstaller {
           });
         break;
       case 'npm':
-        Object.assign(config, { 
-            command: 'npx',
-            args: [installMethod.source || '']
-          });
+      case 'local':
+        if (!config.execution) {
+          config.execution = { command: '', args: [] };
+        }
+        config.execution.command = installMethod.command!;
+        config.execution.args = installMethod.args || [];
         break;
       // 기타 설치 방법에 대한 명령어 처리...
     }
   }
-
   private async installFromGit(
-    serverName: string, 
-    config: MCPServerConfigExtended, 
+    serverName: string,
+    config: MCPServerConfigExtended,
     serverDir: string,
-    installMethod: ServerInstallationMethod
+    method: ServerInstallationMethod
   ): Promise<boolean> {
-    const source = installMethod.source;
-    const branch = installMethod.branch;
-
-    
-    if (!source) {
-      throw new Error('Git 저장소 URL이 지정되지 않았습니다');
+    if (!method.source) throw new Error('Git 저장소 URL이 지정되지 않았습니다');
+    const branchArg = method.branch ? `--branch ${method.branch}` : '';
+    this.reportProgress(serverName, 'Git 저장소 복제 중...', 10);
+    await this.executeCommand(`git clone ${method.source} ${branchArg} .`, { cwd: serverDir });
+    if (method.installCommand) {
+      this.reportProgress(serverName, '의존성 설치 중...', 50);
+      await this.executeCommand(method.installCommand, { cwd: serverDir });
     }
-    
-    // Git 명령어 준비
-    const gitBranch = branch ? `--branch ${branch}` : '';
-    
-    try {
-      // Git 클론
-      this.reportProgress(serverName, 'Git 저장소 복제 중...', 10);
-      await this.executeCommand(`git clone ${source} ${gitBranch} .`, { cwd: serverDir });
-      
-      // 의존성 설치
-      if (installMethod.installCommand) {
-        this.reportProgress(serverName, '의존성 설치 중...', 50);
-        await this.executeCommand(installMethod.installCommand, { cwd: serverDir });
-      }
-      
-      // 설치 설정 메타데이터 저장
-      const metaData = {
-        name: config.name,
-        installType: installMethod.type,
-        installedAt: new Date().toISOString(),
-        source,
-        branch
-      };
-      
+    fs.writeFileSync(
+      path.join(serverDir, '.mcp-meta.json'),
+      JSON.stringify({ name: config.name, installType: 'git', installedAt: new Date().toISOString(), source: method.source, branch: method.branch }, null, 2)
+    );
+    return true;
+  }
+  private async installFromDocker(
+    serverName: string,
+    config: MCPServerConfigExtended,
+    serverDir: string,
+    method: ServerInstallationMethod
+  ): Promise<boolean> {
+    this.reportProgress(serverName, 'Docker 이미지 준비 중...', 10);
+    if (method.dockerComposeFile) {
+      const file = path.join(serverDir, 'docker-compose.yml');
+      fs.writeFileSync(file, method.dockerComposeFile);
+      this.reportProgress(serverName, 'Docker Compose 실행 중...', 30);
+      await this.executeCommand('docker-compose pull', { cwd: serverDir });
+      await this.executeCommand('docker-compose up -d', { cwd: serverDir });
       fs.writeFileSync(
         path.join(serverDir, '.mcp-meta.json'),
-        JSON.stringify(metaData, null, 2)
+        JSON.stringify({ name: config.name, installType: 'docker', installedAt: new Date().toISOString(), composeFile: file }, null, 2)
       );
-      
-      this.reportProgress(serverName, '설치 완료', 100);
       return true;
-    } catch (error) {
-      // 설치 실패 시 디렉토리 정리
-      if (fs.existsSync(serverDir)) {
-        fs.rmSync(serverDir, { recursive: true, force: true });
-      }
-      throw error;
-    }
+    } else if (method.dockerImage) {
+      this.reportProgress(serverName, 'Docker 이미지 다운로드 중...', 30);
+      await this.executeCommand(`docker pull ${method.dockerImage}`);
+      const runCmd = `docker run -d -p ${config.port}:${config.port} ${Object.entries(method.env||{}).map(([k,v])=>`-e ${k}="${v}"`).join(' ')} ${method.dockerImage}`;
+      this.reportProgress(serverName, '컨테이너 실행 중...', 60);
+      await this.executeCommand(runCmd);
+      fs.writeFileSync(
+        path.join(serverDir, '.mcp-meta.json'),
+        JSON.stringify({ name: config.name, installType: 'docker', installedAt: new Date().toISOString(), image: method.dockerImage }, null, 2)
+      );
+      return true;
+    } else throw new Error('Docker 이미지 또는 Compose 파일이 지정되지 않았습니다');
   }
-  
-  private async installFromDocker(
-    serverName: string, 
-    config: MCPServerConfigExtended, 
-    serverDir: string,
-    installMethod: ServerInstallationMethod
-  ): Promise<boolean> {
-    // Docker 설치 로직
-    // 사용자가 직접 Docker를 설치하지 않아도 되도록 내부적으로 처리합니다.
-    // Docker Desktop 없이도 동작하는 경량형 Docker 엔진을 내장하거나, 
-    // 애플리케이션 내에서 Docker 설치를 자동화할 수도 있습니다.
 
-    try {
-      this.reportProgress(serverName, 'Docker 이미지 준비 중...', 10);
-      
-      // Docker Compose 파일이 있으면 우선 사용
-    // Docker Compose 파일이 있으면 우선 사용
-    if (installMethod.dockerComposeFile) {
-        // docker-compose 파일 복사 또는 생성
-        const composeFilePath = path.join(serverDir, 'docker-compose.yml');
-        fs.writeFileSync(composeFilePath, installMethod.dockerComposeFile);
-
-        // docker-compose 실행
-        this.reportProgress(serverName, 'Docker Compose 설정 중...', 30);
-        await this.executeCommand('docker-compose pull', { cwd: serverDir });
-        
-        // 메타데이터 저장
-        const metaData = {
-          name: config.name,
-          installType: 'docker',
-          installedAt: new Date().toISOString(),
-          composeFile: composeFilePath
-        };
-        
-        fs.writeFileSync(
-          path.join(serverDir, '.mcp-meta.json'),
-          JSON.stringify(metaData, null, 2)
-        );
-        
-        this.reportProgress(serverName, '설치 완료', 100);
-        return true;
-      } 
-      // Docker 이미지를 직접 사용하는 경우
-      else if (installMethod.dockerImage) {
-        console.log(`⚙️ installer: docker pull ${installMethod.dockerImage}`);
-        this.reportProgress(serverName, 'Docker 이미지 다운로드 중...', 30);
-        await this.executeCommand(`docker pull ${installMethod.dockerImage}`);
-              // 이제 컨테이너 실행
-        const runCmd = `docker run -d -p ${config.port}:${config.port} ${Object.entries(installMethod.env || {})
-        .map(([k,v]) => `-e ${k}="${v}"`).join(' ')} ${installMethod.dockerImage}`;
-        console.log(`⚙️ installer: ${runCmd}`);
-        this.reportProgress(serverName, '컨테이너 실행 중...', 60);
-        await this.executeCommand(runCmd);
-        // 메타데이터 저장
-        const metaData = {
-            name: config.name,
-            installType: 'docker',
-            installedAt: new Date().toISOString(),
-            image: installMethod.dockerImage
-        };
-        
-        fs.writeFileSync(
-            path.join(serverDir, '.mcp-meta.json'),
-            JSON.stringify(metaData, null, 2)
-        );
-        
-        this.reportProgress(serverName, '설치 완료', 100);
-        return true;
-      } else {
-        throw new Error('Docker 이미지 또는 Compose 파일이 지정되지 않았습니다');
-      }
-    } catch (error) {
-      console.error(`❌ [Installer] Docker 설치 오류:`, error);
-      if (fs.existsSync(serverDir)) {
-        fs.rmSync(serverDir, { recursive: true, force: true });
-      }
-      throw error;
-    }
-  }
-  
 // installFromNpm 메서드 수정
 private async installFromNpm(
-    serverName: string, 
-    config: MCPServerConfigExtended, 
-    serverDir: string,
-    installMethod: ServerInstallationMethod
-  ): Promise<boolean> {
-    try {
-      this.reportProgress(serverName, 'NPM 패키지 설치 준비 중...', 10);
-      
-      // package.json 생성
-      const packageJson = {
-        name: `mcp-server-${serverName}`,
-        version: '1.0.0',
-        private: true,
-        dependencies: {} as Record<string, string>
-      };
-      
-      if (installMethod.source) {
-        // NPM 패키지명으로 설치
-        packageJson.dependencies[installMethod.source] = installMethod.tag || 'latest';
-      }
-      
-      
-      fs.writeFileSync(
-        path.join(serverDir, 'package.json'),
-        JSON.stringify(packageJson, null, 2)
-      );
-      
-      // npm install 실행
-      this.reportProgress(serverName, 'NPM 패키지 설치 중...', 30);
-      await this.executeCommand('npm install', { cwd: serverDir });
-      
-    // 설치 후 명령어 실행
-    if (installMethod.installCommand) {
-        this.reportProgress(serverName, '설치 후 설정 중...', 70);
-        await this.executeCommand(installMethod.installCommand, { cwd: serverDir });
-      }
-      
-      const metaData = {
-        name: config.name,
-        installType: 'npm',
-        installedAt: new Date().toISOString(),
-        package: installMethod.source
-      };
-      
-      
-      fs.writeFileSync(
-        path.join(serverDir, '.mcp-meta.json'),
-        JSON.stringify(metaData, null, 2)
-      );
-      
-      this.reportProgress(serverName, '설치 완료', 100);
-      return true;
-    } catch (error) {
-      if (fs.existsSync(serverDir)) {
-        fs.rmSync(serverDir, { recursive: true, force: true });
-      }
-      throw error;
-    }
+  serverName: string,
+  config: MCPServerConfigExtended,
+  serverDir: string,
+  method: ServerInstallationMethod
+): Promise<boolean> {
+  this.reportProgress(serverName, 'NPM 패키지 설치 준비 중...', 10);
+  const deps = ['ts-node', 'typescript'];
+  this.reportProgress(serverName, '의존성 확인 중...', 20);
+  for (const d of deps) {
+    try { await this.executeCommand(`${d} --version`); }
+    catch { this.reportProgress(serverName, `${d} 설치 중...`, 25); await this.executeCommand(`npm install -g ${d}`); }
   }
-  
+  const pkg = { name: `mcp-server-${serverName}`, version: '1.0.0', private: true, dependencies: {} as any };
+  if (method.source) pkg.dependencies[method.source] = method.tag||'latest';
+  fs.writeFileSync(path.join(serverDir, 'package.json'), JSON.stringify(pkg, null, 2));
+  this.reportProgress(serverName, 'npm install 실행 중...', 30);
+  await this.executeCommand('npm install', { cwd: serverDir });
+  if (method.installCommand) { this.reportProgress(serverName, '설치 후 설정 중...', 70); await this.executeCommand(method.installCommand, { cwd: serverDir }); }
+  fs.writeFileSync(path.join(serverDir, '.mcp-meta.json'), JSON.stringify({ name: config.name, installType: 'npm', installedAt: new Date().toISOString(), package: method.source }, null, 2));
+  return true;
+}
 
 // UVX 설치 메서드 추가
 private async installFromUVX(

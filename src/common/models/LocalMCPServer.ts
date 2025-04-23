@@ -21,7 +21,7 @@ export class LocalMCPServer extends BaseMCPServer {
           detached: true
         }
       );
-      
+      // console.log(this.processHandle);
       // 프로세스 종료 시 상태 업데이트
       this.processHandle.on('exit', (code) => {
         if (code !== 0) {
