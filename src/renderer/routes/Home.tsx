@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Container, Heading, SimpleGrid, Spinner, VStack, Box,
   Text, Flex, Card, CardHeader, CardBody, IconButton,
-  useColorModeValue
+  useColorModeValue, Divider
 } from '@chakra-ui/react';
 import {
   FiServer, FiDatabase, FiSettings, FiLink, FiRefreshCw
@@ -16,7 +16,7 @@ import AppCard from "@/renderer/components/dashboard/AppCard";
 import audacity from "@/renderer/assets/audacity-icon.svg";
 import medium from "@/renderer/assets/medium-logo-icon.svg";
 import huggingface from "@/renderer/assets/huggingface-icon.svg";
-
+import ServerAvatar from "@/renderer/components/dashboard/ServerAvatar";
 
 
 type ServerStatus = { name: string; online: boolean; pingMs?: number };
@@ -78,7 +78,7 @@ const appInfo = {
     color: 'gray'
   },
   trello: {
-    name: 'Trello',
+    name: 'TodoKAKAO',
     logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7a/Trello-logo-blue.svg/2560px-Trello-logo-blue.svg.png',
     color: 'gray'
   },
@@ -103,7 +103,73 @@ export default function Home({ addLog }: HomeProps) {
   const cardBg = useColorModeValue('customCard.light', 'customCard.dark');
   const accentColor = useColorModeValue('customAccent.light', 'customAccent.dark');
 
+// 내 개인 서버 데이터
+const [myServers, setMyServers] = useState([
+  {
+    id: "server-1",
+    name: "Open Gateway",
+    type: "personal",
+    status: "online",
+    lastActive: new Date().toISOString()
+  },
+  {
+    id: "server-2",
+    name: "Dev Environment",
+    type: "development",
+    status: "online",
+    lastActive: new Date().toISOString()
+  },
+  {
+    id: "server-3",
+    name: "ML Pipeline",
+    type: "ml",
+    status: "offline",
+    lastActive: "2023-04-10T14:48:00.000Z"
+  },
+  {
+    id: "server-4",
+    name: "Data Storage",
+    type: "storage",
+    status: "online",
+    lastActive: new Date().toISOString()
+  },
+  {
+    id: "server-5",
+    name: "Testing Server",
+    type: "testing",
+    status: "maintenance",
+    lastActive: "2023-04-15T09:30:00.000Z"
+  },
+  {
+    id: "server-6",
+    name: "Backup Node",
+    type: "backup",
+    status: "standby",
+    lastActive: "2023-04-18T22:15:00.000Z"
+  },
+  {
+    id: "ser3434-9",
+    name: "Testing DFDFer",
+    type: "testing",
+    status: "maintenance",
+    lastActive: "2023-04-15T09:30:00.000Z"
+  },
+  {
+    id: "server-8",
+    name: "Backup Node",
+    type: "backup",
+    status: "standby",
+    lastActive: "2023-04-18T22:15:00.000Z"
+  }
+]);
 
+// 서버 클릭 이벤트 핸들러
+const handleServerClick = (serverId: string) => {
+  // 서버 선택 or 세부 정보 표시 로직
+  addLog(`서버 선택: ${serverId}`);
+  // 예: 선택된 서버 상태 업데이트
+  // setSelectedServer(serverId);
+};
 
 
   const fetchConfigs = async () => {
@@ -269,6 +335,19 @@ export default function Home({ addLog }: HomeProps) {
         />
       ))}
     </SimpleGrid>
+
+    <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4} mt={8}>
+    {myServers.map(server => (
+      <Flex key={server.id} direction="column" align="center">
+        <ServerAvatar
+          name={server.name}
+          color="auto"
+          onClick={() => handleServerClick(server.id)}
+        />
+        <Text mt={2} fontSize="sm" textAlign="center">{server.name}</Text>
+      </Flex>
+    ))}
+  </SimpleGrid>
 </Box>
         <CardBody>
           {loading ? (
