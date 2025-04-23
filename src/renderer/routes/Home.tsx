@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Box, Button, Container, Heading, Icon,
-  SimpleGrid, Spinner, Stack, Text, useColorModeValue, VStack, HStack, Badge
+  SimpleGrid, Spinner, Stack, Text, useColorModeValue, VStack, HStack, Badge, Select
 } from '@chakra-ui/react';
 import { FiDownload, FiRefreshCw, FiPower, FiPause } from 'react-icons/fi';
 
@@ -12,12 +12,27 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
   const [processingServer, setProcessingServer] = useState<string | null>(null);
+  // Preload API 참조 (any로 캐스트)
+  const api = (window as any).api;
   const accent = useColorModeValue('blue.600', 'blue.300');
+  // 서버 Config 요약 정보 및 선택 상태
+  const [configSummaries, setConfigSummaries] = useState<{ id: string; name: string }[]>([]);
+  const [selectedConfigId, setSelectedConfigId] = useState<string>('');
+
+  // Config 요약 불러오기
+  const fetchConfigs = async () => {
+    try {
+      const list = await api.getConfigSummaries();
+      setConfigSummaries(Array.isArray(list) ? list : []);
+    } catch (e) {
+      setLogs(l => [...l, `Error fetching configs: ${String(e)}`]);
+    }
+  };
 
   const fetchServers = async () => {
     setLoading(true);
     try {
-      const list = await window.api.getServers();
+      const list = await api.getServers();
       setServers(Array.isArray(list) ? list : []);
     } catch (e) {
       setLogs(l => [...l, `Error fetching: ${String(e)}`]);
@@ -27,21 +42,24 @@ export default function Home() {
   };
 
   useEffect(() => {
+    fetchConfigs();
     fetchServers();
 
     // 서버 상태 업데이트 구독
-    const offServers = window.api.onServersUpdated((list: ServerStatus[]) => {
+    const offServers = api.onServersUpdated((list: ServerStatus[]) => {
       setServers(Array.isArray(list) ? list : []);
       setProcessingServer(null); // 작업 완료 시 처리 중인 서버 상태 초기화
     });
 
     // 설치 진행 상황 구독
-    const offProg = window.api.onInstallProgress(({ serverName, status, percent }) => {
+    const offProg = api.onInstallProgress((prog: any) => {
+      const { serverName, status, percent } = prog;
       setLogs(l => [...l, `🔄 ${serverName}: ${status} (${percent}%)`]);
     });
 
     // 설치 결과 구독
-    const offRes = window.api.onInstallResult(({ success, message, serverName }) => {
+    const offRes = api.onInstallResult((res: any) => {
+      const { success, message, serverName } = res;
       setLogs(l => [
         ...l,
         `${serverName} 설치 결과: ${message}`
@@ -56,23 +74,25 @@ export default function Home() {
     };
   }, []);
 
+  // 설치 핸들러: 선택된 Config ID로 설치
   const onInstall = () => {
+    if (!selectedConfigId) return;
     setLogs([]);
-    window.api.installServer('qdrant-server');
+    api.installServer(selectedConfigId);
   };
 
   // 서버 시작
   const onStartServer = (serverName: string) => {
     setProcessingServer(serverName);
     setLogs(l => [...l, `🔄 '${serverName}' 서버 시작 중...`]);
-    window.api.startServer(serverName);
+    api.startServer(serverName);
   };
 
   // 서버 중지
   const onStopServer = (serverName: string) => {
     setProcessingServer(serverName);
     setLogs(l => [...l, `🔄 '${serverName}' 서버 중지 중...`]);
-    window.api.stopServer(serverName);
+    api.stopServer(serverName);
   };
 
   return (
@@ -82,14 +102,27 @@ export default function Home() {
 
         {loading && <Spinner size="xl" />}
 
-        <Button
-          size="lg"
-          leftIcon={<Icon as={FiDownload} />}
-          colorScheme="blue"
-          onClick={onInstall}
-        >
-          Qdrant 서버 설치
-        </Button>
+        {/* 서버 선택 및 설치 */}
+        <HStack spacing={4} w="full">
+          <Select
+            placeholder="서버 선택"
+            value={selectedConfigId}
+            onChange={e => setSelectedConfigId(e.target.value)}
+          >
+            {configSummaries.map(cfg => (
+              <option key={cfg.id} value={cfg.id}>{cfg.name}</option>
+            ))}
+          </Select>
+          <Button
+            size="lg"
+            leftIcon={<Icon as={FiDownload} />}
+            colorScheme="blue"
+            onClick={onInstall}
+            disabled={!selectedConfigId}
+          >
+            설치
+          </Button>
+        </HStack>
         
         {!loading && servers.length > 0 && (
           <Button

@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.0.0",
+  "mcpServers": {
+    "n8n": {
+      "name": "n8n",
+      "description": "n8n 서버",
+      "category": "AI/벡터 데이터베이스",
+      "version": "1.0.0",
+      "inputs": [
+
+      ],
+      "installationMethods": {
+        "npm": {
+          "type": "npm",
+          "source": "n8n",
+          "command": "npx",
+          "args": [
+            "-y",
+            "supergateway",
+            "--sse",
+            "http://localhost:5678/mcp/test/sse"
+          ],
+          "overrides": {
+            "remote": {
+ 
+            },
+            "local": {
+
+            }
+          }
+        }
+      },
+
+      "defaultMethod": "docker",
+      "port": 8000,
+      "host": "localhost"
+    }
+  }
+}

@@ -32,13 +32,120 @@
 // src/common/configLoader.ts
 import * as fs from 'fs';
 import * as path from 'path';
+import { app } from 'electron';
 import { LocalMCPServer } from './models/LocalMCPServer';
 import { RemoteMCPServer } from './models/RemoteMCPServer';
 import { MCPConfig, MCPServerConfigExtended } from './types/server-config';
 import { BaseMCPServer } from './models/BaseMCPServer';
-import raw from './config/MCP/qdrant.json';
-// 기본 설정 로드
-const mcpConfig = raw as MCPConfig;
+
+// config/MCP 디렉토리 경로 결정
+let configDir: string;
+if (app.isPackaged) {
+  // Production 환경: resources 경로 기준 (assets 폴더 확인 필요)
+  // electron-react-boilerplate는 보통 resources/app/ 또는 resources/app.asar 구조를 가짐
+  // assets 폴더를 패키징에 포함하도록 electron-builder.json5 설정 필요할 수 있음
+  configDir = path.join(process.resourcesPath, 'assets', 'config', 'MCP');
+  if (!fs.existsSync(configDir)) {
+     console.error(`[configLoader] Production: MCP config 폴더를 찾을 수 없습니다: ${configDir}. Ensure config files are included in the package.`);
+     // Fallback or error handling needed
+     configDir = ''; // 경로 못 찾음 표시
+  }
+} else {
+  // Development 환경: 프로젝트 루트 기준 src/common/config/MCP
+  configDir = path.join(app.getAppPath(), 'src', 'common', 'config', 'MCP');
+  if (!fs.existsSync(configDir)) {
+     console.error(`[configLoader] Development: MCP config 폴더를 찾을 수 없습니다: ${configDir}`);
+     // Fallback or error handling needed
+     configDir = ''; // 경로 못 찾음 표시
+  }
+}
+
+// 파일 목록 읽기 (폴더 존재 및 경로 확인 후)
+const files = configDir && fs.existsSync(configDir)
+                ? fs.readdirSync(configDir).filter(f => f.endsWith('.json'))
+                : [];
+
+// 설정 병합
+const mcpConfig: MCPConfig = files.reduce<MCPConfig>((agg, file) => {
+  const filePath = path.join(configDir, file);
+  const data = JSON.parse(fs.readFileSync(filePath, 'utf8')) as MCPConfig;
+  if (!agg.schema_version && data.schema_version) {
+    agg.schema_version = data.schema_version;
+  }
+  agg.mcpServers = { ...agg.mcpServers, ...data.mcpServers };
+  return agg;
+}, { schema_version: '', mcpServers: {} });
+
+// 요약 정보: id, name, description, category, version 반환
+export interface MCPConfigSummary {
+  id: string;
+  name: string;
+  description?: string;
+  category?: string;
+  version?: string;
+}
+
+export function getMCPConfigSummaryList(): MCPConfigSummary[] {
+  // --- configDir은 모듈 상단에서 이미 결정됨 --- 
+  const files = configDir && fs.existsSync(configDir)
+                ? fs.readdirSync(configDir).filter(f => f.endsWith('.json'))
+                : [];
+  const list: MCPConfigSummary[] = [];
+  for (const file of files) {
+    const id = path.basename(file, '.json');
+    try {
+      const data = JSON.parse(fs.readFileSync(path.join(configDir, file), 'utf8')) as MCPConfig;
+      let cfg = data.mcpServers[id];
+      if (!cfg) {
+        const entries = Object.entries(data.mcpServers);
+        if (entries.length > 0) {
+          cfg = entries[0][1];
+        }
+      }
+      if (cfg) {
+        list.push({
+          id,
+          name: cfg.name,
+          description: cfg.description,
+          category: cfg.category,
+          version: cfg.version,
+        });
+      }
+    } catch (err) {
+      console.warn(`Failed to load MCP config from ${file}: ${err}`);
+    }
+  }
+  console.log(list);
+  console.log(list.length);
+
+  
+  console.log(`[getMCPConfigSummaryList] 총 ${list.length}개의 서버 설정 요약 정보를 반환합니다.`);
+  return list;
+}
+
+// id를 key로 하는 요약 맵 생성 함수 추가
+export function getMCPConfigSummaryMap(): Record<string, MCPConfigSummary> {
+  return getMCPConfigSummaryList().reduce<Record<string, MCPConfigSummary>>((acc, cur) => {
+    acc[cur.id] = cur;
+    return acc;
+  }, {} as Record<string, MCPConfigSummary>);
+}
+
+// 기본 JSON 설정 반환
+export function getBaseMCPServerConfig(id: string): MCPServerConfigExtended | undefined {
+  // --- configDir은 모듈 상단에서 이미 결정됨 --- 
+  const filePath = path.join(configDir, `${id}.json`);
+  if (!fs.existsSync(filePath)) {
+    return undefined;
+  }
+  try {
+    const data = JSON.parse(fs.readFileSync(filePath, 'utf8')) as MCPConfig;
+    return data.mcpServers[id];
+  } catch (err) {
+    console.error(`Failed to parse MCP config file ${filePath}: ${err}`);
+    return undefined;
+  }
+}
 
 /**
  * 객체나 배열 내의 문자열 값에서 플레이스홀더(${input:key})를

@@ -16,7 +16,7 @@ import MenuBuilder from './menu';
 import { resolveHtmlPath } from './util';
 import { spawn } from 'child_process';
 import { ServerManager } from '../common/manager/severManager';
-import { loadMCPServers, getMCPServerConfig } from '../common/configLoader';
+import { loadMCPServers, getMCPServerConfig, getMCPConfigSummaryList } from '../common/configLoader';
 import { ServerInstaller } from '../common/installer/ServerInstaller';
 import { ServerUninstaller } from '../common/installer/ServerUninstaller';
 import { MCPServerConfigExtended } from '@/common/types/server-config';
@@ -53,12 +53,24 @@ ipcMain.on('installServer', async (event: IpcMainEvent, serverName: string) => {
   const config = getMCPServerConfig(serverName);
   console.log('⬇️ main: installServer handler received for', serverName);
 
+  console.log(`[Main] Received config for ${serverName}:`, JSON.stringify(config, null, 2));
+
   if (!config) {
     console.error(`[Main] Config not found for ${serverName}. Replying error.`);
     event.reply('installResult', {
       success: false,
       serverName,
       message: `설정 파일을 찾을 수 없습니다: ${serverName}`
+    });
+    return;
+  }
+
+  if (!config.installationMethods || Object.keys(config.installationMethods).length === 0) {
+    console.error(`[Main] Critical: installationMethods missing or empty in config for ${serverName}!`);
+    event.reply('installResult', {
+      success: false,
+      serverName,
+      message: `설정 파일에 설치 방법(installationMethods)이 정의되지 않았습니다: ${serverName}`
     });
     return;
   }
@@ -192,6 +204,12 @@ class AppUpdater {
 ipcMain.handle('getServers', async () => {
   console.log('[Main] Handling getServers request.');
   return manager.getStatus();
+});
+
+// Config summaries IPC handler
+ipcMain.handle('getConfigSummaries', async () => {
+  console.log('[Main] Handling getConfigSummaries request.');
+  return getMCPConfigSummaryList();
 });
 
 ipcMain.on('ipc-example', async (event: IpcMainEvent, arg) => {
