@@ -1,3 +1,13 @@
+export interface ServerInput {
+  type: 'promptString' | 'promptBoolean' | 'promptNumber' | 'select';
+  id: string;
+  description: string;
+  defaultValue?: string | boolean | number;
+  options?: string[];
+  required?: boolean;
+  password?: boolean;
+}
+
 export interface ServerInstallationMethod {
   type: 'git' | 'docker' | 'npm' | 'local' | 'uvx';
   dockerImage?: string;
@@ -6,16 +16,35 @@ export interface ServerInstallationMethod {
   command: string;
   args: string[];
   env?: { [key: string]: string };
+  overrides?: {
+    [mode: string]: {
+      args?: string[];
+      env?: { [key: string]: string };
+    };
+  };
   branch?: string;
   tag?: string;
   installDir?: string;
   installCommand?: string;
   dockerComposeFile?: string;
   uvxTransport?: 'stdio' | 'sse';
-  // 기타 필요한 필드들
+  category?: string;
+  version?: string;
+  installationMethods?: {
+      [method: string]: ServerInstallationMethod;
+  };
+  defaultMethod?: string;
+  inputs?: ServerInput[];
+  port?: number;
+  host?: string;
+  isInstalled?: boolean;
+  isRunning?: boolean;
+  installedMethod?: string;
+  installedDir?: string;
+  execution?: ExecutionConfig;
+  userInputs?: { [key: string]: any };
 }
 
-// 실행 정보를 위한 새로운 인터페이스 추가
 export interface ExecutionConfig {
   command: string;
   args: string[];
@@ -33,14 +62,13 @@ export interface MCPServerConfigExtended {
   defaultMethod?: string;
   port?: number;
   host?: string;
-  // 설치 및 실행 상태 필드
   isInstalled?: boolean;
   isRunning?: boolean;
   installedMethod?: string;
   installedDir?: string;
-  // 실행 정보 필드 추가
+  currentMode?: string;
   execution?: ExecutionConfig;
-  // 기타 필요한 필드들
+  userInputs?: { [key: string]: any };
 }
 
 export interface MCPConfig {
