@@ -8,35 +8,35 @@ export class InstallMethodSelector {
     const methods = config.installationMethods;
     
     // 기본 메서드가 지정되어 있고 사용 가능하면 해당 메서드 사용
-    if (config.defaultMethod && methods[config.defaultMethod]) {
-      const defaultMethod = methods[config.defaultMethod];
-      if (await this.isMethodAvailable(defaultMethod.type)) {
+    if (config.defaultMethod && methods?.[config.defaultMethod]) {
+      const defaultMethod = methods?.[config.defaultMethod];
+      if (await this.isMethodAvailable(defaultMethod?.type)) {
         return defaultMethod;
       }
     }
     // 우선순위: Docker > UVX > npm > git > local
-    if (methods.docker && await this.isDockerAvailable()) {
+    if (methods?.docker && await this.isDockerAvailable()) {
         return methods.docker;
     }
     
-    if (methods.uvx && await this.isUvxAvailable()) {
+    if (methods?.uvx && await this.isUvxAvailable()) {
       return methods.uvx;
     }
     
-    if (methods.npm && await this.isNpmAvailable()) {
+    if (methods?.npm && await this.isNpmAvailable()) {
       return methods.npm;
     }
     
-    if (methods.git && await this.isGitAvailable()) {
+    if (methods?.git && await this.isGitAvailable()) {
       return methods.git;
     }
     
-    if (methods.local) {
+    if (methods?.local) {
       return methods.local;
     }
     
     // 사용 가능한 설치 방법이 없을 경우 첫 번째 방법 사용
-    const firstMethod = Object.values(methods)[0];
+    const firstMethod = Object.values(methods || {})[0];
     if (firstMethod) {
       return firstMethod;
     }

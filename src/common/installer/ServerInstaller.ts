@@ -3,6 +3,7 @@ import * as path from 'path';
 import { spawn, exec } from 'child_process';
 import { MCPServerConfigExtended, ServerInstallationMethod } from '../types/server-config';
 import { InstallMethodSelector } from './InstallMethodSelector';
+import { updateServerInstallStatus } from '../configLoader';
 
 export class ServerInstaller {
   private appDataPath: string;
@@ -92,6 +93,11 @@ export class ServerInstaller {
 
       if (success) {
         this.reportProgress(serverName, '설치 완료', 100);
+        
+        // 추가: 설치 성공 시 설정 파일 업데이트
+        updateServerInstallStatus(serverName, true, method.type, serverDir);
+        console.log(`📝 [Installer] Updated configuration for ${serverName}`);
+        
         return { success: true, method: method }; // 성공 시 선택된 method 반환
       } else {
         throw new Error('Installation failed internally'); // 내부 실패 처리

@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { exec } from 'child_process';
 import { MCPServerConfigExtended } from '../types/server-config';
+import { updateServerInstallStatus, updateServerRunningStatus } from '../configLoader'; // 추가: 설정 업데이트 임포트
 
 export class ServerUninstaller {
   private appDataPath: string;
@@ -35,7 +36,7 @@ export class ServerUninstaller {
       this.reportProgress(serverName, '제거 준비 중...', 0);
       
       // 서버 디렉토리 경로
-      const serverDir = config.installationMethods[config.defaultMethod!].installDir || path.join(this.appDataPath, 'servers', serverName);
+      const serverDir = config.installationMethods?.[config.defaultMethod!].installDir || path.join(this.appDataPath, 'servers', serverName);
       // 메타 데이터 확인
       const metaPath = path.join(serverDir, '.mcp-meta.json');
       let metaData = null;
@@ -45,7 +46,7 @@ export class ServerUninstaller {
       }
       
       // 설치 유형에 따른 제거 프로세스
-      const installType = metaData?.installType ?? config.installationMethods[config.defaultMethod!]?.type;
+      const installType = metaData?.installType ?? config.installationMethods?.[config.defaultMethod!]?.type;
       
       switch (installType) {
         case 'docker':
@@ -67,6 +68,11 @@ export class ServerUninstaller {
         fs.rmSync(serverDir, { recursive: true, force: true });
       }
       
+      // 추가: 설정 파일에서 설치 상태 업데이트
+      updateServerInstallStatus(serverName, false);
+      updateServerRunningStatus(serverName, false);
+      console.log(`[Uninstaller] Removed ${serverName} from configuration`);
+      
       this.reportProgress(serverName, '제거 완료', 100);
       return true;
     } catch (error) {
@@ -83,7 +89,7 @@ export class ServerUninstaller {
     metaData: any
   ): Promise<void> {
     // Docker Compose 사용 시
-    if (metaData?.composeFile || config.installationMethods.dockerComposeFile) {
+    if (metaData?.composeFile || config.installationMethods?.dockerComposeFile) {
       this.reportProgress(serverName, 'Docker 컨테이너 중지 및 제거 중...', 30);
       
       const composeFile = metaData?.composeFile || 
@@ -94,10 +100,10 @@ export class ServerUninstaller {
       }
     } 
     // 개별 Docker 이미지 사용 시
-    else if (metaData?.image || config.installationMethods.dockerImage) {
+    else if (metaData?.image || config.installationMethods?.dockerImage) {
       this.reportProgress(serverName, 'Docker 컨테이너 찾는 중...', 20);
       
-      const image = metaData?.image || config.installationMethods.dockerImage;
+      const image = metaData?.image || config.installationMethods?.dockerImage;
       const containerList = await this.executeCommand(`docker ps -a --filter "ancestor=${image}" --format "{{.ID}}"`);
       
       if (containerList.trim()) {

@@ -12,7 +12,10 @@ export type Channels =
   | 'installProgress'
   | 'uninstallServer'
   | 'uninstallResult'
-  | 'uninstallProgress';
+  | 'uninstallProgress'
+  | 'server-start-result'
+  | 'server-stop-result';
+
 
 // Low‑level façade (you can remove this if you don’t need it elsewhere)
 const electronHandler = {
@@ -34,7 +37,22 @@ const api = {
   // onServersUpdated:  (fn: (list: any[]) => void) => electronHandler.on('serversUpdated', (_, list) => fn(list as any[])),
   onServersUpdated:  (fn: (list: ServerStatus[]) => void) => electronHandler.on('serversUpdated', (statuses) => fn(statuses as ServerStatus[])),
 
-  
+  // High‑level API 객체 내에 다음 코드 추가
+  onServerStartResult: (fn: (result: any) => void) => {
+    const listener = (_: IpcRendererEvent, res: any) => fn(res);
+    ipcRenderer.on('server-start-result', listener);
+    return () => {
+      ipcRenderer.removeListener('server-start-result', listener);
+    };
+  },
+
+  onServerStopResult: (fn: (result: any) => void) => {
+    const listener = (_: IpcRendererEvent, res: any) => fn(res);
+    ipcRenderer.on('server-stop-result', listener);
+    return () => {
+      ipcRenderer.removeListener('server-stop-result', listener);
+    };
+  },
   // Control
   startServer: (serverName: string) => ipcRenderer.send('start-server', serverName), // <-- 이 부분 확인/추가
   stopServer:  (serverName: string) => ipcRenderer.send('stop-server', serverName), // <-- 이 부분 확인/추가

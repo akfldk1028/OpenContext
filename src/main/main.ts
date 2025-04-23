@@ -147,13 +147,14 @@ ipcMain.on('uninstallServer', async (event: IpcMainEvent, serverName: string) =>
   }
 });
 
-// 서버 시작 IPC 핸들러
+// 서버 시작 IPC 핸들러 - 이벤트 이름 확인
 ipcMain.on('start-server', async (event: IpcMainEvent, serverName: string) => {
   console.log(`[Main] Received start-server IPC for: ${serverName}`);
   try {
     console.log(`[Main] Attempting to start server ${serverName} via ServerManager...`);
     await manager.startServer(serverName);
     console.log(`[Main] Server ${serverName} start command issued successfully.`);
+    // 응답 이벤트 이름이 preload.ts의 함수와 일치하는지 확인
     event.reply('server-start-result', { success: true, serverName });
     event.sender.send('serversUpdated', manager.getStatus());
   } catch (error) {
@@ -162,13 +163,14 @@ ipcMain.on('start-server', async (event: IpcMainEvent, serverName: string) => {
   }
 });
 
-// 서버 중지 IPC 핸들러
+// 서버 중지 IPC 핸들러 - 이벤트 이름 확인
 ipcMain.on('stop-server', async (event: IpcMainEvent, serverName: string) => {
   console.log(`[Main] Received stop-server IPC for: ${serverName}`);
   try {
     console.log(`[Main] Attempting to stop server ${serverName} via ServerManager...`);
     await manager.stopServer(serverName);
     console.log(`[Main] Server ${serverName} stop command issued successfully.`);
+    // 응답 이벤트 이름이 preload.ts의 함수와 일치하는지 확인
     event.reply('server-stop-result', { success: true, serverName });
     event.sender.send('serversUpdated', manager.getStatus());
   } catch (error) {
@@ -176,6 +178,7 @@ ipcMain.on('stop-server', async (event: IpcMainEvent, serverName: string) => {
     event.reply('server-stop-result', { success: false, serverName, error: error instanceof Error ? error.message : String(error) });
   }
 });
+
 
 class AppUpdater {
   constructor() {
