@@ -173,67 +173,90 @@ export class LocalMCPServer extends BaseMCPServer {
   }
 
   // SSE 연결 확인 (HTTP 요청으로 text/event-stream 응답 확인)
-  private checkSSEConnection(sseEndpoint: string, timeout: number = 3000): Promise<boolean> {
-    return new Promise<boolean>((resolve) => {
-      try {
-        const url = new URL(sseEndpoint);
+private checkSSEConnection(sseEndpoint: string, timeout: number = 3000): Promise<boolean> {
+  return new Promise<boolean>((resolve) => {
+    try {
+      const url = new URL(sseEndpoint);
 
-        const options = {
-          hostname: url.hostname,
-          port: url.port || (url.protocol === 'https:' ? 443 : 80),
-          path: url.pathname + url.search,
-          method: 'GET',
-          headers: {
-            'Accept': 'text/event-stream'
-          },
-          timeout: timeout
-        };
+      const options = {
+        hostname: url.hostname,
+        port: url.port || (url.protocol === 'https:' ? 443 : 80),
+        path: url.pathname + url.search,
+        method: 'GET',
+        headers: {
+          'Accept': 'text/event-stream'
+        },
+        timeout: timeout
+      };
 
-        const req = http.request(options, (res) => {
-          // 상태 코드가 200이고 Content-Type이 text/event-stream 또는 응답이 있으면 성공
-          const isEventStream = res.headers['content-type'] &&
-                               (res.headers['content-type'].includes('text/event-stream') ||
-                                res.headers['content-type'].includes('application/json'));
-
-          if (res.statusCode === 200 && isEventStream) {
-            req.destroy();
-            resolve(true);
-            return;
-          }
-
-          // 데이터를 받아보고 판단
-          let data = '';
-          res.on('data', (chunk) => {
-            data += chunk;
-            // 일부 데이터라도 받았으면 연결 가능으로 간주
-            if (data.length > 0) {
-              req.destroy();
-              resolve(true);
-            }
-          });
-
-          res.on('end', () => {
-            // 데이터가 없어도 응답 자체가 왔으면 연결 가능으로 간주
-            resolve(true);
-          });
-        });
-
-        req.on('error', () => {
-          resolve(false);
-        });
-
-        req.on('timeout', () => {
+      const req = http.request(options, (res) => {
+        // 404 또는 기타 오류 상태 코드는 실패로 간주
+        if (res.statusCode !== 200) {
+          this.logInfo(`SSE 엔드포인트 응답 코드: ${res.statusCode} (연결 실패로 간주)`);
           req.destroy();
           resolve(false);
+          return;
+        }
+
+        // 상태 코드가 200이고 Content-Type이 text/event-stream 또는 응답이 있으면 성공
+        const isEventStream = res.headers['content-type'] &&
+                            (res.headers['content-type'].includes('text/event-stream') ||
+                              res.headers['content-type'].includes('application/json'));
+
+        if (isEventStream) {
+          req.destroy();
+          resolve(true);
+          return;
+        }
+
+        // 데이터를 받아보고 판단
+        let data = '';
+        res.on('data', (chunk) => {
+          data += chunk;
+
+          // JSON 응답을 파싱해서 오류 메시지가 있는지 확인
+          try {
+            const response = JSON.parse(data);
+            // code나 message 필드가 있으면 오류 응답으로 간주
+            if (response.code || response.message) {
+              this.logInfo(`SSE 엔드포인트에서 오류 응답 수신: ${JSON.stringify(response)}`);
+              req.destroy();
+              resolve(false);
+              return;
+            }
+          } catch (e) {
+            // JSON 파싱 실패는 무시 (일반 데이터일 수 있음)
+          }
+
+          // 일부 데이터라도 받았으면 연결 가능으로 간주
+          if (data.length > 0) {
+            req.destroy();
+            resolve(true);
+          }
         });
 
-        req.end();
-      } catch (error) {
-        this.logError(`SSE 연결 확인 중 오류 발생: ${sseEndpoint}`, error);
+        res.on('end', () => {
+          // 데이터가 없어도 응답 자체가 왔으면 연결 가능으로 간주
+          resolve(true);
+        });
+      });
+
+      req.on('error', () => {
         resolve(false);
-      }
-    });
-  }
+      });
+
+      req.on('timeout', () => {
+        req.destroy();
+        resolve(false);
+      });
+
+      req.end();
+    } catch (error) {
+      this.logError(`SSE 연결 확인 중 오류 발생: ${sseEndpoint}`, error);
+      resolve(false);
+    }
+  });
+}
 
   private async killProcessByPort(): Promise<void> {
     if (!this.config.port) return;
