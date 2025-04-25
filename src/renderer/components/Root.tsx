@@ -31,6 +31,7 @@ import {
 } from 'react-icons/fi';
 import Home from '../routes/Home';
 import LogSidebar from './LogSidebar';
+import { ToastProvider } from '../components/Toast/ToastManager';
 
 // NavItem을 컴포넌트 바깥으로 이동
 function NavItem({ icon, label, path, isActive, isExpanded, accentColor }: { icon: any, label: string, path: string, isActive: boolean, isExpanded: boolean, accentColor: string }) {
@@ -119,6 +120,18 @@ export default function Root() {
         `${serverName} 제거 결과: ${message}`
       ]);
     });
+    // Claude Desktop 연결 요청 결과 리스너
+    const offClaudeResult = api.onClaudeConnectionResult((res: any) => {
+      const { success, serverName, message } = res;
+      setLogs(l => [...l, `${success ? '✅' : '❌'} ${serverName}: ${message}`]);
+    });
+
+    // Claude Desktop 연결 요청 리스너
+    const offAskClaudeConnection = api.onAskClaudeConnection((data: any) => {
+      const { serverName } = data;
+      setLogs(l => [...l, `🔄 ${serverName}: Claude Desktop 연결 확인 중...`]);
+    });
+
 
     return () => {
       offServers();
@@ -129,6 +142,8 @@ export default function Root() {
       offStopRes(); // 리스너 해제
       offUninstallProg(); // 리스너 해제
       offUninstallRes(); // 리스너 해제
+      offClaudeResult();
+      offAskClaudeConnection();
     };
   }, [api]);
   const cardBg = useColorModeValue('customCard.light', 'customCard.dark');
@@ -174,6 +189,8 @@ export default function Root() {
   };
 
   return (
+    <ToastProvider>
+
     <Flex direction="row" minH="100vh" bg={mainBg}>
       {/* 왼쪽 네비게이션 사이드바 */}
       <Flex
@@ -271,5 +288,7 @@ export default function Root() {
       />
     </Flex>
     </Flex>
+    </ToastProvider>
+
   );
 }

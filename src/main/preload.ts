@@ -16,8 +16,14 @@ export type Channels =
   | 'uninstallProgress'
   | 'server-start-result'
   | 'server-stop-result'
-  | 'server-log';
-
+  | 'server-log'
+  | 'connect-to-claude'
+  | 'disconnect-from-claude'
+  | 'is-connected-to-claude'
+  | 'get-claude-connected-servers'
+  | 'ask-claude-connection'
+  | 'confirm-claude-connection'
+  | 'claude-connection-result';
 
 // Low‑level façade (you can remove this if you don't need it elsewhere)
 const electronHandler = {
@@ -112,6 +118,31 @@ onServerLog: (fn: (message: string) => void) => {
       ipcRenderer.removeListener('uninstallResult', listener);
     };
   },
+  // Claude Desktop 연동
+  connectToClaudeDesktop: (serverName: string) =>
+    electronHandler.invoke('connect-to-claude', serverName),
+
+  disconnectFromClaudeDesktop: (serverName: string) =>
+    electronHandler.invoke('disconnect-from-claude', serverName),
+
+  isConnectedToClaudeDesktop: (serverName: string) =>
+    electronHandler.invoke('is-connected-to-claude', serverName),
+
+  getClaudeConnectedServers: () =>
+    electronHandler.invoke('get-claude-connected-servers'),
+
+  onAskClaudeConnection: (fn: (data: {serverName: string, serverConfig: any}) => void) => {
+    return electronHandler.on('ask-claude-connection', fn);
+  },
+
+  confirmClaudeConnection: (serverName: string, connect: boolean) => {
+    electronHandler.sendMessage('confirm-claude-connection', { serverName, connect });
+  },
+
+  onClaudeConnectionResult: (fn: (result: any) => void) => {
+    return electronHandler.on('claude-connection-result', fn);
+  },
+
 
 };
 

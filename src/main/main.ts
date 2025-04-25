@@ -33,6 +33,98 @@ console.log(`[Main] Initial manager status:`, manager.getStatus());
 
 
 let mainWindow: BrowserWindow | null = null;
+// src/main/main.ts에 추가
+
+import { ClaudeDesktopIntegration } from '../common/integration/ClaudeDesktopIntegration';
+import { getMCPServerConfig } from '../common/configLoader';
+
+// Claude Desktop 통합 객체 생성
+const claudeIntegration = new ClaudeDesktopIntegration();
+
+// IPC 핸들러 등록
+ipcMain.handle('connect-to-claude', async (event, serverName: string) => {
+  try {
+    // 서버 설정 가져오기
+    const serverConfig = getMCPServerConfig(serverName);
+
+    if (!serverConfig) {
+      console.error(`[Main] 서버 설정을 찾을 수 없습니다: ${serverName}`);
+      return { success: false, message: '서버 설정을 찾을 수 없습니다.' };
+    }
+
+    // 설치되지 않은 서버 확인
+    if (!serverConfig.isInstalled) {
+      console.error(`[Main] 서버가 설치되지 않았습니다: ${serverName}`);
+      return { success: false, message: '서버가 설치되지 않았습니다. 먼저 서버를 설치해주세요.' };
+    }
+
+    // Claude Desktop에 연결
+    const success = claudeIntegration.connectServer(serverName, serverConfig);
+
+    console.log(`[Main] ${serverName} Claude Desktop 연결 결과: ${success ? '성공' : '실패'}`);
+
+    return {
+      success,
+      message: success
+        ? `서버 ${serverName}가 Claude Desktop에 연결되었습니다.`
+        : `서버 ${serverName}를 Claude Desktop에 연결하는 데 실패했습니다.`
+    };
+  } catch (error) {
+    console.error(`[Main] Claude Desktop 연결 중 오류 발생:`, error);
+    return {
+      success: false,
+      message: `오류 발생: ${error instanceof Error ? error.message : String(error)}`
+    };
+  }
+});
+
+// main.ts에서 disconnect-from-claude 핸들러 수정
+
+ipcMain.handle('disconnect-from-claude', async (event, serverName: string) => {
+  try {
+    console.log(`[Main] Claude Desktop 연결 해제 시작: ${serverName}`);
+    const isConnected = claudeIntegration.isServerConnected(serverName);
+    console.log(`[Main] 현재 Claude Desktop 연결 상태: ${isConnected ? '연결됨' : '연결안됨'}`);
+
+    const success = claudeIntegration.disconnectServer(serverName);
+
+    console.log(`[Main] ${serverName} Claude Desktop 연결 해제 결과: ${success ? '성공' : '실패'}`);
+    console.log(`[Main] 연결 해제 후 상태: ${claudeIntegration.isServerConnected(serverName) ? '여전히 연결됨(문제!)' : '연결 해제됨(정상)'}`);
+
+    return {
+      success,
+      message: success
+        ? `서버 ${serverName}가 Claude Desktop에서 연결 해제되었습니다.`
+        : `서버 ${serverName}를 Claude Desktop에서 연결 해제하는 데 실패했습니다.`
+    };
+  } catch (error) {
+    console.error(`[Main] Claude Desktop 연결 해제 중 오류 발생:`, error);
+    return {
+      success: false,
+      message: `오류 발생: ${error instanceof Error ? error.message : String(error)}`
+    };
+  }
+});
+
+ipcMain.handle('is-connected-to-claude', async (event, serverName: string) => {
+  try {
+    return claudeIntegration.isServerConnected(serverName);
+  } catch (error) {
+    console.error(`[Main] Claude Desktop 연결 상태 확인 중 오류 발생:`, error);
+    return false;
+  }
+});
+
+ipcMain.handle('get-claude-connected-servers', async () => {
+  try {
+    return claudeIntegration.getAllConnectedServers();
+  } catch (error) {
+    console.error(`[Main] Claude Desktop 연결 서버 목록 조회 중 오류 발생:`, error);
+    return [];
+  }
+});
+
+
 
 // Progress listeners
 installer.addProgressListener((progress) => {
@@ -102,6 +194,12 @@ ipcMain.on('installServer', async (event: IpcMainEvent, serverName: string) => {
       const newMap = loadMCPServers();
       manager = new ServerManager(Array.from(newMap.values()));
       event.sender.send('serversUpdated', manager.getStatus());
+
+
+      event.reply('ask-claude-connection', {
+      serverName,
+      serverConfig: getMCPServerConfig(serverName)
+      });
     }
 
   } catch (error) {
@@ -114,6 +212,21 @@ ipcMain.on('installServer', async (event: IpcMainEvent, serverName: string) => {
   }
 });
 
+ipcMain.on('confirm-claude-connection', async (event, { serverName, connect }) => {
+  if (connect) {
+    const serverConfig = getMCPServerConfig(serverName);
+    if (serverConfig) {
+      const success = claudeIntegration.connectServer(serverName, serverConfig);
+      event.reply('claude-connection-result', {
+        serverName,
+        success,
+        message: success
+          ? `${serverName} 서버가 Claude Desktop에 연결되었습니다.`
+          : `${serverName} 서버를 Claude Desktop에 연결하는 데 실패했습니다.`
+      });
+    }
+  }
+});
 // 서버 제거 IPC 핸들러
 ipcMain.on('uninstallServer', async (event: IpcMainEvent, serverName: string) => {
   console.log(`🗑️ main: uninstallServer handler received for ${serverName}`);
@@ -316,6 +429,9 @@ app.on('window-all-closed', () => {
 app
   .whenReady()
   .then(() => {
+    const canAccessFiles = claudeIntegration.testFileAccess();
+    console.log(`[Main] 파일 접근 테스트 결과: ${canAccessFiles ? '성공' : '실패'}`);
+
     createWindow();
 
     app.on('activate', () => {
@@ -330,5 +446,6 @@ function sendServerLogToRenderer(message: string) {
     mainWindow.webContents.send('server-log', message);
   }
 }
+
 
 export { sendServerLogToRenderer };

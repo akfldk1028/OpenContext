@@ -7,6 +7,7 @@ import ClientToggleCard, { ClientInfo } from './ClientToggleCard';
 import ClaudeLogo from "@/renderer/assets/claude-ai-icon.svg";
 import OpenAILogo from "@/renderer/assets/chatgpt-icon.svg";
 import PerplexityLogo from "@/renderer/assets/google-gemini-icon.svg";
+import { useToast } from '../Toast/ToastManager';
 
 
 interface ServerStatus {
@@ -52,6 +53,8 @@ const ServerCard: React.FC<ServerCardProps> = ({
   onStop,
   onToggleClient
 }) => {
+  const toast = useToast();
+
   const borderColor = useColorModeValue('customBorder.light', 'customBorder.dark');
   const cardBg = useColorModeValue('customCard.light', 'customCard.dark');
   const accentColor = useColorModeValue('customAccent.light', 'customAccent.dark');
@@ -72,6 +75,81 @@ const ServerCard: React.FC<ServerCardProps> = ({
       color: 'blue'
     }
   };
+
+    // Claude 토글 처리 함수에서
+const handleClaudeToggle = (enabled: boolean) => {
+  // 기존 토글 처리
+  onToggleClient(server.name, 'claude', enabled);
+
+  try {
+    if (enabled) {
+      // Claude Desktop에 연결
+      window.api.connectToClaudeDesktop(server.name)
+        .then(result => {
+          if (result.success) {
+            toast.toast({
+              title: "✅ Claude Desktop 연결 성공",
+              description: `${server.name} 서버가 Claude Desktop에 연결되었습니다. 변경사항을 적용하려면 Claude Desktop을 재시작하세요.`,
+              status: "success",
+              duration: 5000
+            });
+          } else {
+            toast.toast({
+              title: "❌ Claude Desktop 연결 실패",
+              description: result.message || "연결 중 오류가 발생했습니다.",
+              status: "error",
+              duration: 6000
+            });
+          }
+        })
+        .catch(err => {
+          toast.toast({
+            title: "❌ 연결 오류",
+            description: String(err),
+            status: "error",
+            duration: 6000
+          });
+        });
+    } else {
+      // Claude Desktop에서 연결 해제
+      window.api.disconnectFromClaudeDesktop(server.name)
+        .then(result => {
+          if (result.success) {
+            toast.toast({
+              title: "ℹ️ Claude Desktop 연결 해제",
+              description: `${server.name} 서버가 Claude Desktop에서 연결 해제되었습니다. 변경사항을 적용하려면 Claude Desktop을 재시작하세요.`,
+              status: "info",
+              duration: 5000
+            });
+          } else {
+            toast.toast({
+              title: "❌ Claude Desktop 연결 해제 실패",
+              description: result.message || "연결 해제 중 오류가 발생했습니다.",
+              status: "error",
+              duration: 6000
+            });
+          }
+        })
+        .catch(err => {
+          toast.toast({
+            title: "❌ 연결 해제 오류",
+            description: String(err),
+            status: "error",
+            duration: 6000
+          });
+        });
+    }
+  } catch (error) {
+    toast.toast({
+      title: "❌ 예상치 못한 오류",
+      description: String(error),
+      status: "error",
+      duration: 6000
+    });
+  }
+};
+
+
   return (
     <Card
       borderWidth="1px"
@@ -138,12 +216,13 @@ const ServerCard: React.FC<ServerCardProps> = ({
             />
 
             {/* Claude */}
-            <ClientToggleCard
-              clientType="claude"
-              isConnected={settings.claude}
-              clientInfo={clientInfo.claude}
-              onToggle={(enabled) => onToggleClient(server.name, 'claude', enabled)}
-            />
+
+          <ClientToggleCard
+            clientType="claude"
+            isConnected={settings.claude}
+            clientInfo={clientInfo.claude}
+            onToggle={handleClaudeToggle}
+          />
 
             {/* 일반 */}
             <ClientToggleCard
