@@ -31,7 +31,7 @@ export interface ServerInstallationMethod {
   category?: string;
   version?: string;
   installationMethods?: {
-      [method: string]: ServerInstallationMethod;
+    [method: string]: ServerInstallationMethod;
   };
   defaultMethod?: string;
   inputs?: ServerInput[];
@@ -57,7 +57,7 @@ export interface MCPServerConfigExtended {
   category?: string;
   version?: string;
   installationMethods?: {
-      [method: string]: ServerInstallationMethod;
+    [method: string]: ServerInstallationMethod;
   };
   defaultMethod?: string;
   port?: number;
@@ -74,6 +74,6 @@ export interface MCPServerConfigExtended {
 export interface MCPConfig {
   schema_version: string;
   mcpServers: {
-      [key: string]: MCPServerConfigExtended;
+    [key: string]: MCPServerConfigExtended;
   };
 }

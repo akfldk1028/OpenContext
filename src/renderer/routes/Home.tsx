@@ -1,23 +1,37 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Container, Heading, SimpleGrid, Spinner, VStack, Box,
-  Text, Flex, Card, CardHeader, CardBody, IconButton,
-  useColorModeValue, Divider
+  Container,
+  Heading,
+  SimpleGrid,
+  Spinner,
+  VStack,
+  Box,
+  Text,
+  Flex,
+  Card,
+  CardHeader,
+  CardBody,
+  IconButton,
+  useColorModeValue,
+  Divider,
 } from '@chakra-ui/react';
 import {
-  FiServer, FiDatabase, FiSettings, FiLink, FiRefreshCw
+  FiServer,
+  FiDatabase,
+  FiSettings,
+  FiLink,
+  FiRefreshCw,
 } from 'react-icons/fi';
 
 // 컴포넌트 임포트
-import StatCard from '../components/server/StatCard';
-import ServerCard from '../components/server/ServerCard';
+import AppCard from '@/renderer/components/dashboard/AppCard';
+import audacity from '@/renderer/assets/audacity-icon.svg';
+import medium from '@/renderer/assets/medium-logo-icon.svg';
+import huggingface from '@/renderer/assets/huggingface-icon.svg';
+import ServerAvatar from '@/renderer/components/dashboard/ServerAvatar';
 import ServerInstaller from '../components/dashboard/ServerInstaller';
-import AppCard from "@/renderer/components/dashboard/AppCard";
-import audacity from "@/renderer/assets/audacity-icon.svg";
-import medium from "@/renderer/assets/medium-logo-icon.svg";
-import huggingface from "@/renderer/assets/huggingface-icon.svg";
-import ServerAvatar from "@/renderer/components/dashboard/ServerAvatar";
-
+import ServerCard from '../components/server/ServerCard';
+import StatCard from '../components/server/StatCard';
 
 type ServerStatus = { name: string; online: boolean; pingMs?: number };
 
@@ -33,144 +47,160 @@ interface HomeProps {
 }
 
 // 타입 확장: AIClientType에 새 앱 유형 추가
-type AIClientType = 'openai' | 'claude' | 'general' | 'google_drive' | 'slack' | 'notion' | 'github';
+type AIClientType =
+  | 'openai'
+  | 'claude'
+  | 'general'
+  | 'google_drive'
+  | 'slack'
+  | 'notion'
+  | 'github';
 
 // 앱 정보 객체 추가
 const appInfo = {
   openai: {
     name: 'medium',
     logo: medium,
-    color: 'gray'
+    color: 'gray',
   },
   claude: {
     name: 'huggingface',
     logo: huggingface,
-    color: 'gray'
+    color: 'gray',
   },
   google_drive: {
     name: 'Google Drive',
     logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Google_Drive_icon_%282020%29.svg/175px-Google_Drive_icon_%282020%29.svg.png',
-    color: 'gray'
+    color: 'gray',
   },
   slack: {
     name: 'Slack',
     logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d5/Slack_icon_2019.svg/2048px-Slack_icon_2019.svg.png',
-    color: 'gray'
+    color: 'gray',
   },
   notion: {
     name: 'Notion',
     logo: 'https://upload.wikimedia.org/wikipedia/commons/4/45/Notion_app_logo.png',
-    color: 'gray'
+    color: 'gray',
   },
   github: {
     name: 'GitHub',
     logo: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png',
-    color: 'gray'
+    color: 'gray',
   },
   dropbox: {
     name: 'audacity',
     logo: audacity,
-    color: 'gray'
+    color: 'gray',
   },
   jira: {
     name: 'Jira',
     logo: 'https://cdn.worldvectorlogo.com/logos/jira-1.svg',
-    color: 'gray'
+    color: 'gray',
   },
   trello: {
     name: 'TodoKAKAO',
     logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7a/Trello-logo-blue.svg/2560px-Trello-logo-blue.svg.png',
-    color: 'gray'
+    color: 'gray',
   },
   asana: {
     name: 'Asana',
     logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3b/Asana_logo.svg/1200px-Asana_logo.svg.png',
-    color: 'gray'
-  }
+    color: 'gray',
+  },
 };
 export default function Home({ addLog }: HomeProps) {
   const [servers, setServers] = useState<ServerStatus[]>([]);
   const [loading, setLoading] = useState(false);
   const [processingServer, setProcessingServer] = useState<string | null>(null);
-  const [clientSettings, setClientSettings] = useState<ServerClientSettings[]>([]);
-  const api = (window as any).api;
-  const [configSummaries, setConfigSummaries] = useState<{ id: string; name: string }[]>([]);
+  const [clientSettings, setClientSettings] = useState<ServerClientSettings[]>(
+    [],
+  );
+  const { api } = window as any;
+  const [configSummaries, setConfigSummaries] = useState<
+    { id: string; name: string }[]
+  >([]);
   const [selectedConfigId, setSelectedConfigId] = useState<string>('');
 
   // 테마 색상
   const accent = useColorModeValue('customAccent.light', 'customAccent.dark');
-  const borderColor = useColorModeValue('customBorder.light', 'customBorder.dark');
+  const borderColor = useColorModeValue(
+    'customBorder.light',
+    'customBorder.dark',
+  );
   const cardBg = useColorModeValue('customCard.light', 'customCard.dark');
-  const accentColor = useColorModeValue('customAccent.light', 'customAccent.dark');
+  const accentColor = useColorModeValue(
+    'customAccent.light',
+    'customAccent.dark',
+  );
 
-// 내 개인 서버 데이터
-const [myServers, setMyServers] = useState([
-  {
-    id: "server-1",
-    name: "Open Gateway",
-    type: "personal",
-    status: "online",
-    lastActive: new Date().toISOString()
-  },
-  {
-    id: "server-2",
-    name: "Dev Environment",
-    type: "development",
-    status: "online",
-    lastActive: new Date().toISOString()
-  },
-  {
-    id: "server-3",
-    name: "ML Pipeline",
-    type: "ml",
-    status: "offline",
-    lastActive: "2023-04-10T14:48:00.000Z"
-  },
-  {
-    id: "server-4",
-    name: "Data Storage",
-    type: "storage",
-    status: "online",
-    lastActive: new Date().toISOString()
-  },
-  {
-    id: "server-5",
-    name: "Testing Server",
-    type: "testing",
-    status: "maintenance",
-    lastActive: "2023-04-15T09:30:00.000Z"
-  },
-  {
-    id: "server-6",
-    name: "Backup Node",
-    type: "backup",
-    status: "standby",
-    lastActive: "2023-04-18T22:15:00.000Z"
-  },
-  {
-    id: "ser3434-9",
-    name: "Testing DFDFer",
-    type: "testing",
-    status: "maintenance",
-    lastActive: "2023-04-15T09:30:00.000Z"
-  },
-  {
-    id: "server-8",
-    name: "Backup Node",
-    type: "backup",
-    status: "standby",
-    lastActive: "2023-04-18T22:15:00.000Z"
-  }
-]);
+  // 내 개인 서버 데이터
+  const [myServers, setMyServers] = useState([
+    {
+      id: 'server-1',
+      name: 'Open Gateway',
+      type: 'personal',
+      status: 'online',
+      lastActive: new Date().toISOString(),
+    },
+    {
+      id: 'server-2',
+      name: 'Dev Environment',
+      type: 'development',
+      status: 'online',
+      lastActive: new Date().toISOString(),
+    },
+    {
+      id: 'server-3',
+      name: 'ML Pipeline',
+      type: 'ml',
+      status: 'offline',
+      lastActive: '2023-04-10T14:48:00.000Z',
+    },
+    {
+      id: 'server-4',
+      name: 'Data Storage',
+      type: 'storage',
+      status: 'online',
+      lastActive: new Date().toISOString(),
+    },
+    {
+      id: 'server-5',
+      name: 'Testing Server',
+      type: 'testing',
+      status: 'maintenance',
+      lastActive: '2023-04-15T09:30:00.000Z',
+    },
+    {
+      id: 'server-6',
+      name: 'Backup Node',
+      type: 'backup',
+      status: 'standby',
+      lastActive: '2023-04-18T22:15:00.000Z',
+    },
+    {
+      id: 'ser3434-9',
+      name: 'Testing DFDFer',
+      type: 'testing',
+      status: 'maintenance',
+      lastActive: '2023-04-15T09:30:00.000Z',
+    },
+    {
+      id: 'server-8',
+      name: 'Backup Node',
+      type: 'backup',
+      status: 'standby',
+      lastActive: '2023-04-18T22:15:00.000Z',
+    },
+  ]);
 
-// 서버 클릭 이벤트 핸들러
-const handleServerClick = (serverId: string) => {
-  // 서버 선택 or 세부 정보 표시 로직
-  addLog(`서버 선택: ${serverId}`);
-  // 예: 선택된 서버 상태 업데이트
-  // setSelectedServer(serverId);
-};
-
+  // 서버 클릭 이벤트 핸들러
+  const handleServerClick = (serverId: string) => {
+    // 서버 선택 or 세부 정보 표시 로직
+    addLog(`서버 선택: ${serverId}`);
+    // 예: 선택된 서버 상태 업데이트
+    // setSelectedServer(serverId);
+  };
 
   const fetchConfigs = async () => {
     try {
@@ -190,14 +220,16 @@ const handleServerClick = (serverId: string) => {
       // 초기 클라이언트 설정 생성 (없는 서버만)
       const newSettings = [...clientSettings];
 
-      list.forEach(srv => {
-        const existingSetting = newSettings.find(s => s.serverName === srv.name);
+      list.forEach((srv) => {
+        const existingSetting = newSettings.find(
+          (s) => s.serverName === srv.name,
+        );
         if (!existingSetting) {
           newSettings.push({
             serverName: srv.name,
             openai: false,
             claude: false,
-            general: false
+            general: false,
           });
         }
       });
@@ -243,14 +275,20 @@ const handleServerClick = (serverId: string) => {
   };
 
   // 클라이언트 연결 토글
-  const toggleClient = (serverName: string, clientType: AIClientType, enabled: boolean) => {
-    const settingsIndex = clientSettings.findIndex(s => s.serverName === serverName);
+  const toggleClient = (
+    serverName: string,
+    clientType: AIClientType,
+    enabled: boolean,
+  ) => {
+    const settingsIndex = clientSettings.findIndex(
+      (s) => s.serverName === serverName,
+    );
     if (settingsIndex === -1) return;
 
     const newSettings = [...clientSettings];
     newSettings[settingsIndex] = {
       ...newSettings[settingsIndex],
-      [clientType]: enabled
+      [clientType]: enabled,
     };
 
     setClientSettings(newSettings);
@@ -261,29 +299,38 @@ const handleServerClick = (serverId: string) => {
 
   // 특정 서버의 클라이언트 설정 가져오기
   const getServerClientSettings = (serverName: string) => {
-    return clientSettings.find(s => s.serverName === serverName) || {
-      serverName,
-      openai: false,
-      claude: false,
-      general: false
-    };
+    return (
+      clientSettings.find((s) => s.serverName === serverName) || {
+        serverName,
+        openai: false,
+        claude: false,
+        general: false,
+      }
+    );
   };
 
   // 활성 연결 수 계산
   const getActiveConnectionCount = () => {
     return clientSettings.reduce((count, setting) => {
-      return count + (setting.openai ? 1 : 0) + (setting.claude ? 1 : 0) + (setting.general ? 1 : 0);
+      return (
+        count +
+        (setting.openai ? 1 : 0) +
+        (setting.claude ? 1 : 0) +
+        (setting.general ? 1 : 0)
+      );
     }, 0);
   };
 
   // 온라인 서버 수 계산
   const getOnlineServerCount = () => {
-    return servers.filter(s => s.online).length;
+    return servers.filter((s) => s.online).length;
   };
 
   return (
     <Container maxW="container.xl" py={5} overflowY="auto" maxH="100%">
-      <Heading mb={6} color={accent}>MCP Server DashBoard</Heading>
+      <Heading mb={6} color={accent}>
+        MCP Server DashBoard
+      </Heading>
 
       {/* 상태 카드 섹션 */}
       <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={6} mb={8}>
@@ -292,7 +339,7 @@ const handleServerClick = (serverId: string) => {
           title="서버 상태"
           value={`${getOnlineServerCount()}/${servers.length}`}
           helpText="서버 온라인"
-          showArrow={true}
+          showArrow
           arrowType="increase"
         />
 
@@ -301,7 +348,7 @@ const handleServerClick = (serverId: string) => {
           title="AI 연결"
           value={getActiveConnectionCount()}
           helpText="활성 연결"
-          showArrow={true}
+          showArrow
           arrowType="increase"
         />
 
@@ -322,33 +369,37 @@ const handleServerClick = (serverId: string) => {
       </SimpleGrid>
 
       {/* 서버 관리 섹션 */}
-      <Card  boxShadow="md" mb={6} bg={cardBg}>
-    <Box mt={8}>
-    <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
-      {Object.entries(appInfo).map(([appType, info]) => (
-        <AppCard
-          key={appType}
-          appType={appType}
-          appInfo={info}
-          isConnected={false}
-          onToggle={() => {/* 앱 연결 토글 핸들러 */}}
-        />
-      ))}
-    </SimpleGrid>
+      <Card boxShadow="md" mb={6} bg={cardBg}>
+        <Box mt={8}>
+          <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4}>
+            {Object.entries(appInfo).map(([appType, info]) => (
+              <AppCard
+                key={appType}
+                appType={appType}
+                appInfo={info}
+                isConnected={false}
+                onToggle={() => {
+                  /* 앱 연결 토글 핸들러 */
+                }}
+              />
+            ))}
+          </SimpleGrid>
 
-    <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4} mt={8}>
-    {myServers.map(server => (
-      <Flex key={server.id} direction="column" align="center">
-        <ServerAvatar
-          name={server.name}
-          color="auto"
-          onClick={() => handleServerClick(server.id)}
-        />
-        <Text mt={2} fontSize="sm" textAlign="center">{server.name}</Text>
-      </Flex>
-    ))}
-  </SimpleGrid>
-</Box>
+          <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing={4} mt={8}>
+            {myServers.map((server) => (
+              <Flex key={server.id} direction="column" align="center">
+                <ServerAvatar
+                  name={server.name}
+                  color="auto"
+                  onClick={() => handleServerClick(server.id)}
+                />
+                <Text mt={2} fontSize="sm" textAlign="center">
+                  {server.name}
+                </Text>
+              </Flex>
+            ))}
+          </SimpleGrid>
+        </Box>
         <CardBody>
           {loading ? (
             <Flex justify="center" py={10}>
@@ -367,7 +418,7 @@ const handleServerClick = (serverId: string) => {
               {/* 서버 목록 */}
               {servers.length > 0 ? (
                 <SimpleGrid columns={1} spacing={4}>
-                  {servers.map(srv => (
+                  {servers.map((srv) => (
                     <ServerCard
                       key={srv.name}
                       server={srv}
@@ -380,8 +431,17 @@ const handleServerClick = (serverId: string) => {
                   ))}
                 </SimpleGrid>
               ) : (
-                <Box p={5} borderWidth="1px" borderRadius="md" borderStyle="dashed" textAlign="center">
-                  <Text color="gray.500">설치된 서버가 없습니다. 위 선택 메뉴에서 서버를 설치해 보세요.</Text>
+                <Box
+                  p={5}
+                  borderWidth="1px"
+                  borderRadius="md"
+                  borderStyle="dashed"
+                  textAlign="center"
+                >
+                  <Text color="gray.500">
+                    설치된 서버가 없습니다. 위 선택 메뉴에서 서버를 설치해
+                    보세요.
+                  </Text>
                 </Box>
               )}
             </VStack>

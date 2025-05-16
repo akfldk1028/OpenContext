@@ -1,14 +1,16 @@
 // LocalMCPServer.ts
 import { ChildProcess, spawn } from 'child_process';
 import { BaseMCPServer } from './BaseMCPServer';
-import {MCPServerConfig, ServerStatus} from '../types/server-status';
+import { MCPServerConfig, ServerStatus } from '../types/server-status';
 import { ProcessManager } from './ProcessManager';
 import { SSEConnectionChecker } from './network/SSEConnectionChecker';
 import { PortConnectionChecker } from './network/PortConnectionChecker';
 
 export class LocalMCPServer extends BaseMCPServer {
   private processManager: ProcessManager;
+
   private sseChecker: SSEConnectionChecker;
+
   private portChecker: PortConnectionChecker;
 
   constructor(name: string, config: MCPServerConfig) {
@@ -27,7 +29,7 @@ export class LocalMCPServer extends BaseMCPServer {
       this.processHandle = this.processManager.spawnProcess(
         this.config.command,
         this.config.args,
-        { ...process.env, ...this.config.env }
+        { ...process.env, ...this.config.env },
       );
 
       this.updateStatus('running');

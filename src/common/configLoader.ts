@@ -1,6 +1,3 @@
-
-
-
 // src/common/configLoader.ts
 import * as fs from 'fs';
 import * as path from 'path';
@@ -18,35 +15,43 @@ if (app.isPackaged) {
   // assets 폴더를 패키징에 포함하도록 electron-builder.json5 설정 필요할 수 있음
   configDir = path.join(process.resourcesPath, 'assets', 'config', 'MCP');
   if (!fs.existsSync(configDir)) {
-     console.error(`[configLoader] Production: MCP config 폴더를 찾을 수 없습니다: ${configDir}. Ensure config files are included in the package.`);
-     // Fallback or error handling needed
-     configDir = ''; // 경로 못 찾음 표시
+    console.error(
+      `[configLoader] Production: MCP config 폴더를 찾을 수 없습니다: ${configDir}. Ensure config files are included in the package.`,
+    );
+    // Fallback or error handling needed
+    configDir = ''; // 경로 못 찾음 표시
   }
 } else {
   // Development 환경: 프로젝트 루트 기준 src/common/config/MCP
   configDir = path.join(app.getAppPath(), 'src', 'common', 'config', 'MCP');
   if (!fs.existsSync(configDir)) {
-     console.error(`[configLoader] Development: MCP config 폴더를 찾을 수 없습니다: ${configDir}`);
-     // Fallback or error handling needed
-     configDir = ''; // 경로 못 찾음 표시
+    console.error(
+      `[configLoader] Development: MCP config 폴더를 찾을 수 없습니다: ${configDir}`,
+    );
+    // Fallback or error handling needed
+    configDir = ''; // 경로 못 찾음 표시
   }
 }
 
 // 파일 목록 읽기 (폴더 존재 및 경로 확인 후)
-const files = configDir && fs.existsSync(configDir)
-                ? fs.readdirSync(configDir).filter(f => f.endsWith('.json'))
-                : [];
+const files =
+  configDir && fs.existsSync(configDir)
+    ? fs.readdirSync(configDir).filter((f) => f.endsWith('.json'))
+    : [];
 
 // 설정 병합
-const mcpConfig: MCPConfig = files.reduce<MCPConfig>((agg, file) => {
-  const filePath = path.join(configDir, file);
-  const data = JSON.parse(fs.readFileSync(filePath, 'utf8')) as MCPConfig;
-  if (!agg.schema_version && data.schema_version) {
-    agg.schema_version = data.schema_version;
-  }
-  agg.mcpServers = { ...agg.mcpServers, ...data.mcpServers };
-  return agg;
-}, { schema_version: '', mcpServers: {} });
+const mcpConfig: MCPConfig = files.reduce<MCPConfig>(
+  (agg, file) => {
+    const filePath = path.join(configDir, file);
+    const data = JSON.parse(fs.readFileSync(filePath, 'utf8')) as MCPConfig;
+    if (!agg.schema_version && data.schema_version) {
+      agg.schema_version = data.schema_version;
+    }
+    agg.mcpServers = { ...agg.mcpServers, ...data.mcpServers };
+    return agg;
+  },
+  { schema_version: '', mcpServers: {} },
+);
 
 // 요약 정보: id, name, description, category, version 반환
 export interface MCPConfigSummary {
@@ -58,15 +63,18 @@ export interface MCPConfigSummary {
 }
 
 export function getMCPConfigSummaryList(): MCPConfigSummary[] {
-  // --- configDir은 모듈 상단에서 이미 결정됨 --- 
-  const files = configDir && fs.existsSync(configDir)
-                ? fs.readdirSync(configDir).filter(f => f.endsWith('.json'))
-                : [];
+  // --- configDir은 모듈 상단에서 이미 결정됨 ---
+  const files =
+    configDir && fs.existsSync(configDir)
+      ? fs.readdirSync(configDir).filter((f) => f.endsWith('.json'))
+      : [];
   const list: MCPConfigSummary[] = [];
   for (const file of files) {
     const id = path.basename(file, '.json');
     try {
-      const data = JSON.parse(fs.readFileSync(path.join(configDir, file), 'utf8')) as MCPConfig;
+      const data = JSON.parse(
+        fs.readFileSync(path.join(configDir, file), 'utf8'),
+      ) as MCPConfig;
       let cfg = data.mcpServers[id];
       if (!cfg) {
         const entries = Object.entries(data.mcpServers);
@@ -90,15 +98,17 @@ export function getMCPConfigSummaryList(): MCPConfigSummary[] {
   console.log(list);
   console.log(list.length);
 
-  
-  console.log(`[getMCPConfigSummaryList] 총 ${list.length}개의 서버 설정 요약 정보를 반환합니다.`);
+  console.log(
+    `[getMCPConfigSummaryList] 총 ${list.length}개의 서버 설정 요약 정보를 반환합니다.`,
+  );
   return list;
 }
 
-
 // 기본 JSON 설정 반환
-export function getBaseMCPServerConfig(id: string): MCPServerConfigExtended | undefined {
-  // --- configDir은 모듈 상단에서 이미 결정됨 --- 
+export function getBaseMCPServerConfig(
+  id: string,
+): MCPServerConfigExtended | undefined {
+  // --- configDir은 모듈 상단에서 이미 결정됨 ---
   const filePath = path.join(configDir, `${id}.json`);
   if (!fs.existsSync(filePath)) {
     return undefined;
@@ -117,7 +127,10 @@ export function getBaseMCPServerConfig(id: string): MCPServerConfigExtended | un
  * 주어진 입력값(inputs)으로 치환하는 헬퍼 함수.
  * 재귀적으로 동작하여 중첩된 구조도 처리합니다.
  */
-function resolvePlaceholders(value: any, inputs: { [key: string]: any } | undefined): any {
+function resolvePlaceholders(
+  value: any,
+  inputs: { [key: string]: any } | undefined,
+): any {
   // 입력값이 없거나, value가 null 또는 undefined면 원본 반환
   if (!inputs || value === null || value === undefined) {
     return value;
@@ -130,10 +143,12 @@ function resolvePlaceholders(value: any, inputs: { [key: string]: any } | undefi
       // TODO: inputs 정의에 defaultValue가 있다면 그것을 사용하는 로직 추가 고려
       return inputs[key] !== undefined ? String(inputs[key]) : match;
     });
-  } else if (Array.isArray(value)) {
+  }
+  if (Array.isArray(value)) {
     // 배열이면 각 요소를 재귀적으로 처리
-    return value.map(item => resolvePlaceholders(item, inputs));
-  } else if (value && typeof value === 'object' && value.constructor === Object) {
+    return value.map((item) => resolvePlaceholders(item, inputs));
+  }
+  if (value && typeof value === 'object' && value.constructor === Object) {
     // 순수 객체이면 각 속성값을 재귀적으로 처리
     const resolvedObject: { [key: string]: any } = {};
     for (const key in value) {
@@ -153,9 +168,11 @@ function resolvePlaceholders(value: any, inputs: { [key: string]: any } | undefi
 function hasUnresolvedPlaceholders(value: any): boolean {
   if (typeof value === 'string') {
     return /\${input:\w+}/.test(value);
-  } else if (Array.isArray(value)) {
+  }
+  if (Array.isArray(value)) {
     return value.some(hasUnresolvedPlaceholders);
-  } else if (value && typeof value === 'object' && value.constructor === Object) {
+  }
+  if (value && typeof value === 'object' && value.constructor === Object) {
     return Object.values(value).some(hasUnresolvedPlaceholders);
   }
   return false;
@@ -163,11 +180,11 @@ function hasUnresolvedPlaceholders(value: any): boolean {
 
 // 사용자 데이터 경로
 const appDataPath = path.join(
-  process.env.APPDATA || 
-  (process.platform === 'darwin' 
-    ? process.env.HOME + '/Library/Application Support' 
-    : process.env.HOME + '/.local/share'),
-  'mcp-server-manager'
+  process.env.APPDATA ||
+    (process.platform === 'darwin'
+      ? `${process.env.HOME}/Library/Application Support`
+      : `${process.env.HOME}/.local/share`),
+  'mcp-server-manager',
 );
 
 // 사용자 설정 파일 경로
@@ -181,7 +198,7 @@ if (!fs.existsSync(appDataPath)) {
 // 사용자 설정 로드 (없으면 빈 객체)
 let userConfig: MCPConfig = {
   schema_version: mcpConfig.schema_version,
-  mcpServers: {}
+  mcpServers: {},
 };
 
 // 사용자 설정 파일 존재 여부 확인 및 로드
@@ -197,7 +214,7 @@ if (fs.existsSync(userConfigPath)) {
 // 결합된 설정 (기본 + 사용자)
 const combinedConfig: MCPConfig = {
   schema_version: mcpConfig.schema_version,
-  mcpServers: { ...mcpConfig.mcpServers, ...userConfig.mcpServers }
+  mcpServers: { ...mcpConfig.mcpServers, ...userConfig.mcpServers },
 };
 
 // 사용자 설정 저장 함수
@@ -209,7 +226,11 @@ export function saveUserConfig(): void {
     }
 
     // 파일 저장
-    fs.writeFileSync(userConfigPath, JSON.stringify(userConfig, null, 2), 'utf8');
+    fs.writeFileSync(
+      userConfigPath,
+      JSON.stringify(userConfig, null, 2),
+      'utf8',
+    );
     console.log('사용자 설정 저장 완료:', userConfigPath);
   } catch (error) {
     console.error('사용자 설정 저장 실패:', error);
@@ -217,7 +238,14 @@ export function saveUserConfig(): void {
 }
 
 // 서버 설치 상태 업데이트
-export function updateServerInstallStatus(name: string, isInstalled: boolean, method?: string, installDir?: string, userInputs?: { [key: string]: any }, mode?: string): void {
+export function updateServerInstallStatus(
+  name: string,
+  isInstalled: boolean,
+  method?: string,
+  installDir?: string,
+  userInputs?: { [key: string]: any },
+  mode?: string,
+): void {
   // 서버 정보 가져오기
   const serverConfig = combinedConfig.mcpServers[name];
   if (!serverConfig) {
@@ -243,10 +271,14 @@ export function updateServerInstallStatus(name: string, isInstalled: boolean, me
     const override = selectedMethod.overrides?.[currentMode];
 
     // 최종 args 결정 (override 우선)
-    const finalArgs = override?.args !== undefined ? override.args : selectedMethod.args;
+    const finalArgs =
+      override?.args !== undefined ? override.args : selectedMethod.args;
 
     // 최종 env 결정 (기본 + override 병합)
-    const finalEnv = { ...(selectedMethod.env ?? {}), ...(override?.env ?? {}) };
+    const finalEnv = {
+      ...(selectedMethod.env ?? {}),
+      ...(override?.env ?? {}),
+    };
 
     // 간소화된 서버 정보 생성
     userConfig.mcpServers[name] = {
@@ -259,26 +291,29 @@ export function updateServerInstallStatus(name: string, isInstalled: boolean, me
       isRunning: false, // 처음 설치 시 기본값
       installedMethod: method,
       installedDir: installDir,
-      currentMode: currentMode, // 전달받은 모드 저장
+      currentMode, // 전달받은 모드 저장
       execution: {
         command: selectedMethod.command,
         // 선택된 모드가 적용된 args/env 저장 (플레이스홀더 유지)
         args: finalArgs,
-        env: finalEnv
+        env: finalEnv,
       },
-      userInputs: userInputs ?? {} // 전달된 userInputs 저장, 없으면 빈 객체
+      userInputs: userInputs ?? {}, // 전달된 userInputs 저장, 없으면 빈 객체
     };
   } else if (!isInstalled) {
     // 제거 시 서버 정보 삭제
     delete userConfig.mcpServers[name];
   }
-  
+
   // 설정 저장
   saveUserConfig();
 }
 
 // 서버 실행 상태 업데이트
-export function updateServerRunningStatus(name: string, isRunning: boolean): void {
+export function updateServerRunningStatus(
+  name: string,
+  isRunning: boolean,
+): void {
   // 사용자 설정에 서버가 없으면 기본 설정에서 복사
   if (!userConfig.mcpServers[name]) {
     if (combinedConfig.mcpServers[name]) {
@@ -288,10 +323,10 @@ export function updateServerRunningStatus(name: string, isRunning: boolean): voi
       return;
     }
   }
-  
+
   // 실행 상태 업데이트
   userConfig.mcpServers[name].isRunning = isRunning;
-  
+
   // 설정 저장
   saveUserConfig();
 }
@@ -299,7 +334,7 @@ export function updateServerRunningStatus(name: string, isRunning: boolean): voi
 // 기존 loadMCPServers 함수 수정 (combinedConfig 사용)
 export function loadMCPServers(): Map<string, BaseMCPServer> {
   const map = new Map<string, BaseMCPServer>();
-  
+
   // --- 1. 기본 서버 구성 로드 (mcpConfig 기반, 아직 설치되지 않은 서버) ---
   for (const [name, srvCfg] of Object.entries(mcpConfig.mcpServers)) {
     // 설치된 서버가 아니면 (userConfig에 없으면) 기본 메서드 사용
@@ -308,7 +343,9 @@ export function loadMCPServers(): Map<string, BaseMCPServer> {
       const baseMethod = srvCfg.installationMethods?.[methodKey!];
 
       if (!baseMethod) {
-        console.warn(`서버 로드 실패 (${name}): 기본 설치 방법 '${methodKey}'을(를) 찾을 수 없음`);
+        console.warn(
+          `서버 로드 실패 (${name}): 기본 설치 방법 '${methodKey}'을(를) 찾을 수 없음`,
+        );
         continue;
       }
 
@@ -322,7 +359,8 @@ export function loadMCPServers(): Map<string, BaseMCPServer> {
       const override = baseMethod.overrides?.default;
 
       // 최종 args 결정: override에 args가 있으면 사용, 없으면 기본 args 사용
-      const finalArgs = override?.args !== undefined ? override.args : baseMethod.args;
+      const finalArgs =
+        override?.args !== undefined ? override.args : baseMethod.args;
 
       // 최종 env 결정: 기본 env와 override env 병합 (override 우선)
       const finalEnv = { ...(baseMethod.env ?? {}), ...(override?.env ?? {}) };
@@ -332,8 +370,13 @@ export function loadMCPServers(): Map<string, BaseMCPServer> {
       const resolvedEnv = resolvePlaceholders(finalEnv, userInputs);
 
       // <<< 추가: 미해결 플레이스홀더 검사 >>>
-      if (hasUnresolvedPlaceholders(resolvedArgs) || hasUnresolvedPlaceholders(resolvedEnv)) {
-        console.warn(`서버 로드 실패 (${name}): 필수 입력값이 설정되지 않아 플레이스홀더가 남아있습니다. (기본 설정 사용)`);
+      if (
+        hasUnresolvedPlaceholders(resolvedArgs) ||
+        hasUnresolvedPlaceholders(resolvedEnv)
+      ) {
+        console.warn(
+          `서버 로드 실패 (${name}): 필수 입력값이 설정되지 않아 플레이스홀더가 남아있습니다. (기본 설정 사용)`,
+        );
         continue; // 이 서버 로드를 건너뛰니다.
       }
       // <<< 검사 끝 >>>
@@ -346,31 +389,34 @@ export function loadMCPServers(): Map<string, BaseMCPServer> {
         port: srvCfg.port,
       };
 
-      const inst = cfg.host && cfg.host !== 'localhost'
-        ? new RemoteMCPServer(name, cfg)
-        : new LocalMCPServer(name, cfg);
+      const inst =
+        cfg.host && cfg.host !== 'localhost'
+          ? new RemoteMCPServer(name, cfg)
+          : new LocalMCPServer(name, cfg);
 
       map.set(name, inst);
     }
   }
-  
+
   // --- 2. 설치된 서버 구성 로드 (userConfig 기반) ---
   for (const [name, srvCfg] of Object.entries(userConfig.mcpServers)) {
     // userConfig의 srvCfg는 설치 시점에 결정된 execution 정보를 가짐
-    const execution = srvCfg.execution;
+    const { execution } = srvCfg;
     if (!execution?.command || !execution?.args) {
-      console.warn(`설치된 서버 '${name}'에 필요한 실행 정보가 없습니다. 생략합니다.`);
+      console.warn(
+        `설치된 서버 '${name}'에 필요한 실행 정보가 없습니다. 생략합니다.`,
+      );
       continue;
     }
 
-     // <<< 로직 변경 시작 >>>
-     // 설치된 서버는 저장된 execution 정보와 userInputs를 사용한다.
-     // override 재계산은 필요 없음. 플레이스홀더 치환만 수행.
+    // <<< 로직 변경 시작 >>>
+    // 설치된 서버는 저장된 execution 정보와 userInputs를 사용한다.
+    // override 재계산은 필요 없음. 플레이스홀더 치환만 수행.
 
-     // 사용자 입력 값 가져오기 (srvCfg는 userConfig에서 온 것)
+    // 사용자 입력 값 가져오기 (srvCfg는 userConfig에서 온 것)
     const userInputs = srvCfg.userInputs ?? {};
 
-     // 저장된 execution 정보 사용
+    // 저장된 execution 정보 사용
     const savedArgs = execution.args;
     const savedEnv = execution.env;
 
@@ -380,8 +426,13 @@ export function loadMCPServers(): Map<string, BaseMCPServer> {
     // <<< 로직 변경 끝 >>>
 
     // <<< 추가: 미해결 플레이스홀더 검사 >>>
-    if (hasUnresolvedPlaceholders(resolvedArgs) || hasUnresolvedPlaceholders(resolvedEnv)) {
-      console.warn(`서버 로드 실패 (${name}): 필수 입력값이 설정되지 않아 플레이스홀더가 남아있습니다. (설치된 설정 사용)`);
+    if (
+      hasUnresolvedPlaceholders(resolvedArgs) ||
+      hasUnresolvedPlaceholders(resolvedEnv)
+    ) {
+      console.warn(
+        `서버 로드 실패 (${name}): 필수 입력값이 설정되지 않아 플레이스홀더가 남아있습니다. (설치된 설정 사용)`,
+      );
       continue; // 이 서버 로드를 건너뛰니다.
     }
     // <<< 검사 끝 >>>
@@ -394,9 +445,10 @@ export function loadMCPServers(): Map<string, BaseMCPServer> {
       port: srvCfg.port,
     };
 
-    const inst = cfg.host && cfg.host !== 'localhost'
-      ? new RemoteMCPServer(name, cfg)
-      : new LocalMCPServer(name, cfg);
+    const inst =
+      cfg.host && cfg.host !== 'localhost'
+        ? new RemoteMCPServer(name, cfg)
+        : new LocalMCPServer(name, cfg);
 
     // 저장된 상태에 따라 서버 상태 설정
     if (srvCfg.isRunning) {
@@ -405,11 +457,13 @@ export function loadMCPServers(): Map<string, BaseMCPServer> {
 
     map.set(name, inst);
   }
-  
+
   return map;
 }
 
-export function getMCPServerConfig(name: string): MCPServerConfigExtended | undefined {
+export function getMCPServerConfig(
+  name: string,
+): MCPServerConfigExtended | undefined {
   return combinedConfig.mcpServers[name];
 }
 
@@ -419,31 +473,40 @@ export function getMCPServerConfig(name: string): MCPServerConfigExtended | unde
  */
 export function updateServerConfiguration(
   serverName: string,
-  updates: { mode?: string; inputs?: { [key: string]: any } }
+  updates: { mode?: string; inputs?: { [key: string]: any } },
 ): void {
   // 1. userConfig에서 현재 서버 설정 가져오기
   const currentUserConfig = userConfig.mcpServers[serverName];
   if (!currentUserConfig) {
-    console.error(`[updateServerConfiguration] 설정 업데이트 실패: 서버 '${serverName}'가 userServers.json에 존재하지 않습니다.`);
+    console.error(
+      `[updateServerConfiguration] 설정 업데이트 실패: 서버 '${serverName}'가 userServers.json에 존재하지 않습니다.`,
+    );
     return;
   }
 
   // 2. mcpConfig에서 기본 서버 설정 가져오기 (설치 방법 정보 필요)
   const baseServerConfig = mcpConfig.mcpServers[serverName];
   if (!baseServerConfig) {
-    console.error(`[updateServerConfiguration] 설정 업데이트 실패: 기본 설정에서 서버 '${serverName}'를 찾을 수 없습니다.`);
+    console.error(
+      `[updateServerConfiguration] 설정 업데이트 실패: 기본 설정에서 서버 '${serverName}'를 찾을 수 없습니다.`,
+    );
     return;
   }
 
   // 3. 설치된 방법 가져오기
   const installedMethodKey = currentUserConfig.installedMethod;
   if (!installedMethodKey) {
-    console.error(`[updateServerConfiguration] 설정 업데이트 실패: 서버 '${serverName}'에 설치된 방법 정보가 없습니다.`);
+    console.error(
+      `[updateServerConfiguration] 설정 업데이트 실패: 서버 '${serverName}'에 설치된 방법 정보가 없습니다.`,
+    );
     return;
   }
-  const installedMethod = baseServerConfig.installationMethods?.[installedMethodKey];
+  const installedMethod =
+    baseServerConfig.installationMethods?.[installedMethodKey];
   if (!installedMethod) {
-    console.error(`[updateServerConfiguration] 설정 업데이트 실패: 기본 설정에서 설치 방법 '${installedMethodKey}'를 찾을 수 없습니다.`);
+    console.error(
+      `[updateServerConfiguration] 설정 업데이트 실패: 기본 설정에서 설치 방법 '${installedMethodKey}'를 찾을 수 없습니다.`,
+    );
     return;
   }
 
@@ -454,25 +517,34 @@ export function updateServerConfiguration(
   const targetInputs = updates.inputs ?? currentUserConfig.userInputs ?? {};
 
   // 5. 새로운 모드에 따른 override 계산
-  const override = targetMode ? installedMethod.overrides?.[targetMode] : undefined;
+  const override = targetMode
+    ? installedMethod.overrides?.[targetMode]
+    : undefined;
 
   // 6. 새로운 execution 정보 계산 (override 적용)
-  const newFinalArgs = override?.args !== undefined ? override.args : installedMethod.args;
-  const newFinalEnv = { ...(installedMethod.env ?? {}), ...(override?.env ?? {}) };
+  const newFinalArgs =
+    override?.args !== undefined ? override.args : installedMethod.args;
+  const newFinalEnv = {
+    ...(installedMethod.env ?? {}),
+    ...(override?.env ?? {}),
+  };
 
   // 7. userConfig 업데이트
   userConfig.mcpServers[serverName] = {
     ...currentUserConfig, // 기존 정보 유지 (name, description, isInstalled 등)
     currentMode: targetMode, // 새로운 모드 업데이트
     userInputs: targetInputs, // 새로운 입력값 업데이트
-    execution: { // 새로운 실행 정보 업데이트
+    execution: {
+      // 새로운 실행 정보 업데이트
       command: installedMethod.command,
       args: newFinalArgs, // 새로 계산된 args (플레이스홀더 유지)
-      env: newFinalEnv,  // 새로 계산된 env (플레이스홀더 유지)
+      env: newFinalEnv, // 새로 계산된 env (플레이스홀더 유지)
     },
   };
 
   // 8. 변경사항 저장
   saveUserConfig();
-  console.log(`[updateServerConfiguration] 서버 '${serverName}' 설정 업데이트 완료.`);
+  console.log(
+    `[updateServerConfiguration] 서버 '${serverName}' 설정 업데이트 완료.`,
+  );
 }
